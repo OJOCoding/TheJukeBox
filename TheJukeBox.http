@@ -1,0 +1,6 @@
+@TheJukeBox_HostAddress = http://localhost:5255
+
+GET {{TheJukeBox_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
