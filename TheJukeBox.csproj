@@ -16,7 +16,6 @@
 
   <ItemGroup>
     <Folder Include="APPLICATION\" />
-    <Folder Include="CLIENT\" />
     <Folder Include="INFRASTRUCTURE\" />
     <Folder Include="TESTS\" />
   </ItemGroup>

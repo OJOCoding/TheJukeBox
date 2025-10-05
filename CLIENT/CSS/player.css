@@ -1,0 +1,424 @@
+﻿/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    background: #ffffff;
+    min-height: 100vh;
+    color: #000000;
+    padding: 20px;
+    line-height: 1.4;
+    position: relative;
+}
+
+    /* Blueprint Grid Background */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+/* Main Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: 8px 8px 0px #000000;
+    position: relative;
+}
+
+/* Close Button - Top Right */
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: #ffffff;
+    border: 2px solid #000000;
+    color: #000000;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    box-shadow: 4px 4px 0px #000000;
+}
+
+    .close-btn:hover {
+        background: #000000;
+        color: #ffffff;
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0px #000000;
+    }
+
+    .close-btn:active {
+        transform: translate(4px, 4px);
+        box-shadow: 0px 0px 0px #000000;
+    }
+
+/* Header */
+.header {
+    text-align: center;
+    padding: 40px 20px 20px;
+    border-bottom: 3px solid #000000;
+    background: #f8f8f8;
+}
+
+    .header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #000000;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+    }
+
+    .header p {
+        font-size: 1.1rem;
+        color: #333333;
+        font-weight: 400;
+    }
+
+/* Stats Section */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0;
+    border-bottom: 2px solid #000000;
+}
+
+.stat-item {
+    padding: 25px;
+    text-align: center;
+    background: #ffffff;
+    position: relative;
+}
+
+    .stat-item:not(:last-child) {
+        border-right: 2px solid #000000;
+    }
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #000000;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: #666666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+/* Player Section */
+.player-section {
+    padding: 30px;
+    border-bottom: 2px solid #000000;
+    background: #f8f8f8;
+}
+
+/* Now Playing */
+.now-playing {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    margin-bottom: 25px;
+    padding: 20px;
+    border: 2px solid #000000;
+    background: #ffffff;
+}
+
+.album-art {
+    width: 100px;
+    height: 100px;
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+    box-shadow: 4px 4px 0px #000000;
+}
+
+.track-info {
+    flex: 1;
+}
+
+    .track-info h3 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #000000;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .track-info p {
+        font-size: 1rem;
+        color: #666666;
+        font-weight: 400;
+    }
+
+/* Audio Player */
+.audio-player {
+    width: 100%;
+    margin: 25px 0;
+}
+
+    .audio-player audio {
+        width: 100%;
+        height: 50px;
+        border-radius: 0;
+        border: 2px solid #000000;
+    }
+
+/* Custom Audio Player Styling */
+audio::-webkit-media-controls-panel {
+    background: #ffffff !important;
+    border-radius: 0 !important;
+}
+
+audio::-webkit-media-controls-play-button {
+    background-color: #000000 !important;
+    border-radius: 0 !important;
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    background: #ffffff;
+    border: 2px solid #000000;
+    color: #000000;
+    padding: 12px 24px;
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 4px 4px 0px #000000;
+    font-family: 'Courier New', monospace;
+}
+
+    .control-btn:hover {
+        background: #000000;
+        color: #ffffff;
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0px #000000;
+    }
+
+    .control-btn:active {
+        transform: translate(4px, 4px);
+        box-shadow: 0px 0px 0px #000000;
+    }
+
+/* Playlist Section */
+.playlist {
+    padding: 30px;
+    background: #ffffff;
+}
+
+    .playlist h3 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #000000;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #000000;
+        padding-bottom: 10px;
+    }
+
+/* Playlist Items */
+#playlist {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 2px solid #000000;
+}
+
+.track-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #000000;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+    .track-item:last-child {
+        border-bottom: none;
+    }
+
+    .track-item:hover {
+        background: #f0f0f0;
+    }
+
+    .track-item.active {
+        background: #000000;
+        color: #ffffff;
+    }
+
+.track-name {
+    font-weight: 600;
+    color: inherit;
+    flex: 1;
+}
+
+.track-duration {
+    font-size: 0.9rem;
+    color: inherit;
+    opacity: 0.8;
+    font-weight: 400;
+}
+
+/* Loading and Error States */
+.loading {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 1.1rem;
+    color: #666666;
+    font-weight: 400;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    background: #ffffff;
+    border: 2px solid #000000;
+    color: #000000;
+    margin: 10px 0;
+    font-weight: 600;
+}
+
+/* Remove old home link */
+.home-link {
+    display: none;
+}
+
+/* Scrollbar Styling */
+#playlist::-webkit-scrollbar {
+    width: 8px;
+}
+
+#playlist::-webkit-scrollbar-track {
+    background: #f0f0f0;
+}
+
+#playlist::-webkit-scrollbar-thumb {
+    background: #000000;
+    border: 1px solid #000000;
+}
+
+    #playlist::-webkit-scrollbar-thumb:hover {
+        background: #333333;
+    }
+
+/* Corner Accents */
+.container::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #000000;
+    background: #ffffff;
+    top: -2px;
+    right: -2px;
+    border-left: none;
+    border-bottom: none;
+}
+
+.container::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #000000;
+    background: #ffffff;
+    bottom: -2px;
+    left: -2px;
+    border-right: none;
+    border-top: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .header h1 {
+        font-size: 2rem;
+    }
+
+    .now-playing {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+
+    .controls {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .control-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+
+    .stats {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-item:not(:last-child) {
+        border-right: none;
+        border-bottom: 2px solid #000000;
+    }
+}
+
+/* Focus states for accessibility */
+.control-btn:focus,
+.track-item:focus,
+.close-btn:focus {
+    outline: 2px dashed #000000;
+    outline-offset: 2px;
+}
+
+/* Selection style */
+::selection {
+    background: #000000;
+    color: #ffffff;
+}
