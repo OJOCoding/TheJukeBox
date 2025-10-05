@@ -1,0 +1,205 @@
+﻿/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    background: #ffffff;
+    min-height: 100vh;
+    color: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+/* Main Container - Blueprint Style */
+.container {
+    text-align: center;
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 0;
+    padding: 60px 40px;
+    max-width: 700px;
+    width: 90%;
+    position: relative;
+    box-shadow: 8px 8px 0px #000000;
+}
+
+    /* Blueprint Grid Background */
+    .container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+/* Header */
+h1 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: #000000;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 3px solid #000000;
+    padding-bottom: 15px;
+    display: inline-block;
+}
+
+/* Tagline */
+.tagline {
+    font-size: 1.2rem;
+    color: #333333;
+    margin-bottom: 40px;
+    font-weight: 400;
+    border: 1px solid #000000;
+    padding: 15px;
+    background: #f8f8f8;
+}
+
+/* Buttons - Technical Style */
+.buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 50px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #ffffff;
+    border: 2px solid #000000;
+    color: #000000;
+    padding: 16px 32px;
+    text-decoration: none;
+    border-radius: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 4px 4px 0px #000000;
+    position: relative;
+}
+
+    .btn:hover {
+        background: #000000;
+        color: #ffffff;
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0px #000000;
+    }
+
+    .btn:active {
+        transform: translate(4px, 4px);
+        box-shadow: 0px 0px 0px #000000;
+    }
+
+.btn-primary {
+    background: #000000;
+    color: #ffffff;
+}
+
+    .btn-primary:hover {
+        background: #333333;
+    }
+
+
+
+/* Status Indicator */
+.status {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    background: #00ff00;
+    border: 1px solid #000000;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 40px 25px;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+        letter-spacing: 1px;
+    }
+
+    .tagline {
+        font-size: 1rem;
+    }
+
+    .buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .btn {
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
+    }
+
+    .features {
+        grid-template-columns: 1fr;
+    }
+
+    .tech-specs {
+        margin-top: 30px;
+    }
+}
+
+
+/* Focus states for accessibility */
+.btn:focus {
+    outline: 2px dashed #000000;
+    outline-offset: 4px;
+}
+
+/* Selection style */
+::selection {
+    background: #000000;
+    color: #ffffff;
+}
