@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -7,7 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Apis.Auth" Version="1.71.0" />
+    <PackageReference Include="Google.Apis.Drive.v3" Version="1.71.0.3905" />
+    <PackageReference Include="Google.Apis.Oauth2.v2" Version="1.68.0.1869" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="APPLICATION\" />
+    <Folder Include="CLIENT\" />
+    <Folder Include="INFRASTRUCTURE\" />
+    <Folder Include="TESTS\" />
   </ItemGroup>
 
 </Project>
