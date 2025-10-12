@@ -54,7 +54,6 @@ cd jukebox
 -  Verify the folder structure matches:
 
 ```
-text
 TheJukeBox/
 ├── AUTH/
 │   └── credentials.json
@@ -137,7 +136,7 @@ GET  /api/auth/setup                 # OAuth configuration
 GET  /api/auth/callback              # OAuth authentication handler
 ```
 # Development Information
-Project Architecture
+## Project Architecture
 ```
 TheJukeBox/
 ├── API/

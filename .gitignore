@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/AUTH/credentials.json
+/AUTH/Google.Apis.Auth.OAuth2.Responses.TokenResponse-user
