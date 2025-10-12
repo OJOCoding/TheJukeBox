@@ -111,11 +111,12 @@ Access the application at https://localhost:7077
 
 # Technical Specifications
 - System Architecture
-
+```
 Frontend Layer (CLIENT/)     Backend Layer (ASP.NET Core API)
 ├── HTML/CSS/JavaScript      ├── Controller Management
 ├── Technical UI Interface   ├── Service Layer
 └── Responsive Framework     └── Google Drive API Integration
+```
 
 # Supported Audio Formats
 
@@ -137,7 +138,7 @@ GET  /api/auth/callback              # OAuth authentication handler
 ```
 # Development Information
 Project Architecture
-text
+```
 TheJukeBox/
 ├── API/
 │   ├── HomeController.cs
@@ -153,14 +154,16 @@ TheJukeBox/
 │   ├── JS/ (Player functionality)
 │   └── HTML Pages (Frontend interfaces)
 └── AUTH/ (OAuth configuration files)
-Build Instructions
-# Restore project dependencies
+```
+
+# Build Instructions
+## Restore project dependencies
 dotnet restore
-# Compile project
+## Compile project
 dotnet build
-# Execute with development configuration
+## Execute with development configuration
 dotnet run --environment Development
-# Execute with production configuration  
+## Execute with production configuration  
 dotnet run --environment Production
 
 # Security and Privacy
