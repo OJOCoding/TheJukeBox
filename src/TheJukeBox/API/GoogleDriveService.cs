@@ -1,279 +1,176 @@
-﻿using Google.Apis.Drive.v3;
-using Google.Apis.Drive.v3.Data;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Google.Apis.Drive.v3;
+using TheJukeBox.Diagnostics;
+using TheJukeBox.Infrastructure.Drive;
+using DriveData = Google.Apis.Drive.v3.Data;
 
-namespace TheJukeBox.API
+namespace TheJukeBox.API;
+
+public interface IGoogleDriveService
 {
-    public interface IGoogleDriveService
+    Task<List<AudioFile>> GetAudioFilesAsync(CancellationToken cancellationToken = default);
+
+    Task<List<AudioFile>> GetAudioFilesInFolderAsync(string folderId, CancellationToken cancellationToken = default);
+
+    Task<AudioFile?> GetAudioFileAsync(string fileId, CancellationToken cancellationToken = default);
+
+    Task<Stream> DownloadAudioFileAsync(string fileId, CancellationToken cancellationToken = default);
+
+    Task<List<DriveFile>> SearchAudioFilesAsync(string? searchTerm = null, CancellationToken cancellationToken = default);
+
+    Task<List<DriveFile>> SearchFilesByNameAsync(string? fileName, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Reads audio files from Google Drive. Superseded in A5 (listing) and A6 (streaming).
+/// </summary>
+/// <remarks>
+/// Two known defects are deliberately left in place because the phases that fix them
+/// replace this class entirely, so patching here would be thrown away: listings do
+/// not follow <c>NextPageToken</c> and therefore truncate at 100 files, and
+/// <see cref="DownloadAudioFileAsync"/> buffers whole files into memory. What is
+/// fixed is query construction, which was injectable, and the use of obsolete Drive
+/// date properties.
+/// </remarks>
+public sealed class GoogleDriveService(
+    IGoogleAuthService authService,
+    ILogger<GoogleDriveService> logger) : IGoogleDriveService
+{
+    private const string AudioFields =
+        "files(id, name, mimeType, size, createdTime, modifiedTime, webContentLink)";
+
+    private const string SingleFileFields =
+        "id, name, mimeType, size, createdTime, modifiedTime, webContentLink";
+
+    // TODO(A5): follow NextPageToken. Until then any library above this many audio
+    // files is silently truncated.
+    private const int UnpaginatedPageSize = 100;
+
+    public async Task<List<AudioFile>> GetAudioFilesAsync(CancellationToken cancellationToken = default)
     {
-        Task<List<AudioFile>> GetAudioFilesAsync();
-        Task<List<AudioFile>> GetAudioFilesInFolderAsync(string folderId);
-        Task<System.IO.Stream> DownloadAudioFileAsync(string fileId);
-        Task<List<DriveFile>> SearchFilesByNameAsync(string fileName);
-        Task<List<DriveFile>> SearchFilesByExtensionAsync(string extension);
-        Task<List<DriveFile>> SearchFilesByMimeTypeAsync(string mimeType);
-        Task<List<DriveFile>> SearchAudioFilesAsync(string searchTerm = "");
+        var files = await ListAsync(DriveQuery.AllAudio(), UnpaginatedPageSize, cancellationToken);
+
+        Log.DriveListed(logger, files.Count);
+
+        return files.Select(ToAudioFile).ToList();
     }
 
-    public class GoogleDriveService : IGoogleDriveService
+    public async Task<List<AudioFile>> GetAudioFilesInFolderAsync(
+        string folderId,
+        CancellationToken cancellationToken = default)
     {
-        private readonly IGoogleAuthService _authService;
+        // AudioInFolder validates the id rather than escaping it: the Drive id
+        // alphabet excludes both the quote and the backslash, so anything containing
+        // them is not an id and must be rejected outright.
+        var files = await ListAsync(DriveQuery.AudioInFolder(folderId), UnpaginatedPageSize, cancellationToken);
 
-        public GoogleDriveService(IGoogleAuthService authService)
+        return files.Select(ToAudioFile).ToList();
+    }
+
+    public async Task<List<DriveFile>> SearchAudioFilesAsync(
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default)
+    {
+        var files = await ListAsync(DriveQuery.AudioNamed(searchTerm), UnpaginatedPageSize, cancellationToken);
+
+        return files.Select(ToDriveFile).ToList();
+    }
+
+    public async Task<List<DriveFile>> SearchFilesByNameAsync(
+        string? fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var files = await ListAsync(DriveQuery.Named(fileName), 50, cancellationToken);
+
+        return files.Select(ToDriveFile).ToList();
+    }
+
+    /// <summary>Metadata for a single file, or null when Drive reports it missing.</summary>
+    /// <remarks>
+    /// Callers needing one file's name or MIME type used to obtain it by listing the
+    /// entire library and searching the result: 100 quota units per request instead of
+    /// 5, and because that listing stopped at 100 files it made every track beyond the
+    /// hundredth report "File not found" even though its bytes streamed perfectly.
+    /// </remarks>
+    public async Task<AudioFile?> GetAudioFileAsync(
+        string fileId,
+        CancellationToken cancellationToken = default)
+    {
+        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+
+        var request = driveService.Files.Get(DriveQuery.RequireFileId(fileId));
+        request.Fields = SingleFileFields;
+
+        try
         {
-            _authService = authService;
+            return ToAudioFile(await request.ExecuteAsync(cancellationToken));
         }
-
-        public async Task<List<AudioFile>> GetAudioFilesAsync()
+        catch (Google.GoogleApiException e) when (e.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.List();
-
-            request.Q = "mimeType contains 'audio/' and trashed=false";
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime, webContentLink)";
-            request.PageSize = 100;
-            request.OrderBy = "name";
-
-            var result = await request.ExecuteAsync();
-            var audioFiles = new List<AudioFile>();
-
-            foreach (var file in result.Files)
-            {
-                var streamUrl = $"/api/audiofiles/download/{file.Id}";
-                var cleanMimeType = CleanString(file.MimeType);
-
-                audioFiles.Add(new AudioFile
-                {
-                    Id = file.Id,
-                    Name = file.Name,
-                    MimeType = file.MimeType,
-                    Size = file.Size ?? 0,
-                    CreatedTime = file.CreatedTime,
-                    ModifiedTime = file.ModifiedTime,
-                    StreamUrl = streamUrl,
-                    FileExtension = GetFileExtension(file.Name, file.MimeType)
-                });
-            }
-
-            return audioFiles;
-        }
-        private string CleanString(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return input;
-
-            // Remove any non-printable characters and trim
-            return new string(input.Where(c => !char.IsControl(c)).ToArray()).Trim();
-        }
-
-        public async Task<List<AudioFile>> GetAudioFilesInFolderAsync(string folderId)
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.List();
-
-            request.Q = $"'{folderId}' in parents and mimeType contains 'audio/' and trashed=false";
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime, webContentLink)";
-            request.PageSize = 100;
-            request.OrderBy = "name";
-
-            var result = await request.ExecuteAsync();
-            var audioFiles = new List<AudioFile>();
-
-            foreach (var file in result.Files)
-            {
-                audioFiles.Add(new AudioFile
-                {
-                    Id = file.Id,
-                    Name = file.Name,
-                    MimeType = file.MimeType,
-                    Size = file.Size ?? 0,
-                    CreatedTime = file.CreatedTime,
-                    ModifiedTime = file.ModifiedTime,
-                    WebContentLink = file.WebContentLink,
-                    FileExtension = GetFileExtension(file.Name, file.MimeType)
-                });
-            }
-
-            return audioFiles;
-        }
-
-        public async Task<System.IO.Stream> DownloadAudioFileAsync(string fileId)
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.Get(fileId);
-            var stream = new System.IO.MemoryStream();
-
-            await request.DownloadAsync(stream);
-            stream.Position = 0; 
-
-            return stream;
-        }
-
-        public async Task<List<DriveFile>> SearchFilesByNameAsync(string fileName)
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.List();
-            request.Q = $"name contains '{fileName}' and trashed=false";
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime)";
-            request.PageSize = 50;
-
-            var result = await request.ExecuteAsync();
-            return ConvertToDriveFiles(result.Files);
-        }
-
-        public async Task<List<DriveFile>> SearchFilesByExtensionAsync(string extension)
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.List();
-            request.Q = $"name contains '{extension}' and trashed=false";
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime)";
-            request.PageSize = 50;
-
-            var result = await request.ExecuteAsync();
-            return ConvertToDriveFiles(result.Files);
-        }
-
-        public async Task<List<DriveFile>> SearchFilesByMimeTypeAsync(string mimeType)
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            var request = driveService.Files.List();
-            request.Q = $"mimeType='{mimeType}' and trashed=false";
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime)";
-            request.PageSize = 50;
-
-            var result = await request.ExecuteAsync();
-            return ConvertToDriveFiles(result.Files);
-        }
-
-        public async Task<List<DriveFile>> SearchAudioFilesAsync(string searchTerm = "")
-        {
-            var driveService = await _authService.GetValidDriveServiceAsync();
-
-            string query;
-            if (string.IsNullOrEmpty(searchTerm))
-            {
-                query = "mimeType contains 'audio/' and trashed=false";
-            }
-            else
-            {
-                query = $"name contains '{searchTerm}' and mimeType contains 'audio/' and trashed=false";
-            }
-
-            var request = driveService.Files.List();
-            request.Q = query;
-            request.Fields = "files(id, name, mimeType, size, createdTime, modifiedTime, webContentLink)";
-            request.PageSize = 100;
-            request.OrderBy = "name";
-
-            var result = await request.ExecuteAsync();
-            return ConvertToDriveFiles(result.Files);
-        }
-
-        private List<DriveFile> ConvertToDriveFiles(IList<Google.Apis.Drive.v3.Data.File> files)
-        {
-            var driveFiles = new List<DriveFile>();
-
-            foreach (var file in files)
-            {
-                driveFiles.Add(new DriveFile
-                {
-                    Id = file.Id,
-                    Name = file.Name,
-                    MimeType = file.MimeType,
-                    Size = file.Size ?? 0,
-                    CreatedTime = file.CreatedTime,
-                    ModifiedTime = file.ModifiedTime,
-                    IsAudio = file.MimeType?.Contains("audio/") == true,
-                    WebContentLink = file.WebContentLink
-                });
-            }
-
-            return driveFiles;
-        }
-
-        private string GetFileExtension(string fileName, string mimeType)
-        {
-            // Try to get extension from filename first
-            if (!string.IsNullOrEmpty(fileName) && fileName.Contains('.'))
-            {
-                var extension = Path.GetExtension(fileName).ToLower();
-                // Validate it's a known audio extension
-                var validExtensions = new[] { ".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".mp4" };
-                if (validExtensions.Contains(extension))
-                {
-                    return extension;
-                }
-            }
-
-            // Fall back to MIME type mapping
-            return mimeType?.ToLower() switch
-            {
-                "audio/mpeg" => ".mp3",
-                "audio/wav" => ".wav",
-                "audio/x-wav" => ".wav",
-                "audio/ogg" => ".ogg",
-                "audio/flac" => ".flac",
-                "audio/x-flac" => ".flac",
-                "audio/mp4" => ".m4a",
-                "audio/x-m4a" => ".m4a",
-                "audio/aac" => ".aac",
-                _ => ".mp3" // Default to mp3 if unknown
-            };
+            return null;
         }
     }
 
-    public class AudioFile
+    public async Task<Stream> DownloadAudioFileAsync(
+        string fileId,
+        CancellationToken cancellationToken = default)
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string MimeType { get; set; }
-        public long Size { get; set; }
-        public DateTime? CreatedTime { get; set; }
-        public DateTime? ModifiedTime { get; set; }
-        public string StreamUrl { get; set; } 
-        public string FileExtension { get; set; }
+        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+        var request = driveService.Files.Get(DriveQuery.RequireFileId(fileId));
 
-        // Helper properties
-        public string FormattedSize => FormatFileSize(Size);
-        public bool IsPlayable => IsSupportedAudioFormat(FileExtension);
+        // TODO(A6): replace with a range-passthrough proxy. This pulls the entire file
+        // into process memory before a single byte reaches the client, so
+        // time-to-first-byte equals full download time and every seek re-downloads the
+        // whole track.
+        var buffer = new MemoryStream();
+        await request.DownloadAsync(buffer, cancellationToken);
+        buffer.Position = 0;
 
-        public string WebContentLink { get; internal set; }
-
-        private string FormatFileSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            int order = 0;
-            double len = bytes;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len = len / 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
-        }
-
-        private bool IsSupportedAudioFormat(string extension)
-        {
-            var supportedFormats = new[] { ".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac" };
-            return supportedFormats.Contains(extension.ToLower());
-        }
+        return buffer;
     }
 
-    public class DriveFile
+    private async Task<IList<DriveData.File>> ListAsync(
+        string query,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string MimeType { get; set; }
-        public long Size { get; set; }
-        public DateTime? CreatedTime { get; set; }
-        public DateTime? ModifiedTime { get; set; }
-        public bool IsAudio { get; set; }
-        public string WebContentLink { get; internal set; }
+        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+
+        var request = driveService.Files.List();
+        request.Q = query;
+        request.Fields = AudioFields;
+        request.PageSize = pageSize;
+        request.OrderBy = "name";
+
+        var result = await request.ExecuteAsync(cancellationToken);
+
+        return result.Files ?? [];
     }
+
+    private static AudioFile ToAudioFile(DriveData.File file) => new()
+    {
+        Id = file.Id ?? string.Empty,
+        Name = file.Name ?? string.Empty,
+        MimeType = file.MimeType,
+        Size = file.Size ?? 0,
+        // The non-suffixed CreatedTime/ModifiedTime properties are obsolete and
+        // documented as "may behave unexpectedly"; the DateTimeOffset variants are the
+        // supported accessors.
+        CreatedTime = file.CreatedTimeDateTimeOffset,
+        ModifiedTime = file.ModifiedTimeDateTimeOffset,
+        WebContentLink = file.WebContentLink,
+        StreamUrl = $"/api/audiofiles/download/{file.Id}",
+        FileExtension = FileExtensions.Resolve(file.Name, file.MimeType),
+    };
+
+    private static DriveFile ToDriveFile(DriveData.File file) => new()
+    {
+        Id = file.Id ?? string.Empty,
+        Name = file.Name ?? string.Empty,
+        MimeType = file.MimeType,
+        Size = file.Size ?? 0,
+        CreatedTime = file.CreatedTimeDateTimeOffset,
+        ModifiedTime = file.ModifiedTimeDateTimeOffset,
+        IsAudio = file.MimeType?.Contains("audio/", StringComparison.OrdinalIgnoreCase) == true,
+        WebContentLink = file.WebContentLink,
+    };
 }

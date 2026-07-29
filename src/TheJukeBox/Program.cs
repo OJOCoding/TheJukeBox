@@ -1,54 +1,136 @@
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using TheJukeBox.API;
+using TheJukeBox.Configuration;
+using TheJukeBox.Diagnostics;
+using TheJukeBox.Errors;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --------------------------------------------------------------------------
+// Configuration
+// --------------------------------------------------------------------------
+// ValidateOnStart moves "you forgot to configure this" from a 500 on the first
+// request that happens to need Drive, to a legible message at process start.
+
+builder.Services.AddOptions<GoogleOAuthOptions>()
+    .BindConfiguration(GoogleOAuthOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => !options.ClientId.Contains("YOUR_CLIENT_ID", StringComparison.OrdinalIgnoreCase),
+        "ClientId is still a placeholder value.")
+    .ValidateOnStart();
+
+builder.Services.AddOptions<AppOptions>()
+    .BindConfiguration(AppOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<StorageOptions>()
+    .BindConfiguration(StorageOptions.SectionName)
+    .ValidateOnStart();
+
+// Resolved eagerly and registered, so nothing downstream is tempted to reach for
+// Directory.GetCurrentDirectory() again.
+var storageOptions = builder.Configuration
+                         .GetSection(StorageOptions.SectionName)
+                         .Get<StorageOptions>()
+                     ?? new StorageOptions();
+
+JukeBoxPaths paths;
+
+try
+{
+    paths = new JukeBoxPaths { DataPath = DataPathResolver.Resolve(storageOptions) };
+}
+catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+{
+    StartupValidation.PrintAndExit(e);
+    return;
+}
+
+builder.Services.AddSingleton(paths);
+
+// --------------------------------------------------------------------------
+// Services
+// --------------------------------------------------------------------------
+
 builder.Services.AddControllers();
 
-builder.Services.AddScoped<IGoogleAuthService, GoogleAPI_Service>();
+builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
+
+// One exception handler, one response shape. Replaces the per-action
+// catch-and-return-BadRequest(ex.Message) blocks that used to be in every action.
+builder.Services.AddProblemDetails(options =>
+    options.CustomizeProblemDetails = ProblemDetailsExceptionHandler.Enrich);
+
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 
 builder.Services.AddOpenApi();
 
-// TODO(A1): delete this entirely. The frontend is served same-origin from this
-// host, so no cross-origin access is needed -- and AllowAnyOrigin combined with
-// the server-side Drive token lets any site the user visits read their library.
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
+// No CORS policy at all. The frontend is served from this same origin, so
+// cross-origin access is never needed -- and the previous AllowAnyOrigin policy,
+// combined with a Drive token held server-side, meant any site the user visited while
+// this app was running could read their entire library from localhost.
 
 var app = builder.Build();
 
+// --------------------------------------------------------------------------
+// Pipeline
+// --------------------------------------------------------------------------
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
-else
-{
-    app.UseExceptionHandler("/error");
-}
 
-// UseDefaultFiles rewrites "/" to "/index.html" so UseStaticFiles can serve it.
-// Order matters: the rewrite must run before the file handler.
+// UseDefaultFiles rewrites "/" to "/index.html" before UseStaticFiles serves it, so
+// the order here matters.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 
 app.MapControllers();
 
-app.MapGet("/player", (IWebHostEnvironment env) =>
-    TypedResults.PhysicalFile(Path.Combine(env.WebRootPath, "player.html"), "text/html"));
+app.MapGet("/player", (IWebHostEnvironment environment) =>
+    TypedResults.PhysicalFile(Path.Combine(environment.WebRootPath, "player.html"), "text/html"));
 
-app.Map("/error", () => Results.Problem("An error occurred."));
+// --------------------------------------------------------------------------
+// Run
+// --------------------------------------------------------------------------
 
-app.Run();
+try
+{
+    LogStartupFacts(app);
+    app.Run();
+}
+catch (Exception e) when (StartupValidation.IsConfigurationFailure(e))
+{
+    StartupValidation.PrintAndExit(e);
+}
+
+return;
+
+// Emitted before Run so the two facts most often needed to debug a deployment --
+// where state is written, and the exact redirect URIs Google must be told about --
+// are the first thing in the log, and copy-pasteable.
+static void LogStartupFacts(WebApplication application)
+{
+    // Touching every validated options type here, before app.Run(), means a
+    // misconfiguration is thrown from this call and caught below. Leaving it to the
+    // host's own StartupValidator works too, but the host logs "Hosting failed to
+    // start" with a full stack trace first, burying the readable explanation.
+    _ = application.Services.GetRequiredService<IOptions<GoogleOAuthOptions>>().Value;
+
+    var appOptions = application.Services.GetRequiredService<IOptions<AppOptions>>().Value;
+    var dataPath = application.Services.GetRequiredService<JukeBoxPaths>().DataPath;
+
+    Log.DataPathResolved(application.Logger, dataPath);
+    Log.RedirectUris(application.Logger, appOptions.SignInRedirectUri, appOptions.DriveRedirectUri);
+}

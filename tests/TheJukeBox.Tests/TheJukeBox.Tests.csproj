@@ -20,4 +20,13 @@
     <ProjectReference Include="..\..\src\TheJukeBox\TheJukeBox.csproj" />
   </ItemGroup>
 
+  <!--
+    Needed to see ASP.NET Core types such as StatusCodes and, from A4 onward,
+    WebApplicationFactory. A ProjectReference to a web project does not bring the
+    shared framework across on its own.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>
