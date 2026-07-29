@@ -9,6 +9,7 @@ GET {{TheJukeBox_HostAddress}}/player
 Accept: text/html
 
 ### Full audio library
+### Returns a urn:jukebox:drive-consent-required problem (403) until Drive is connected.
 GET {{TheJukeBox_HostAddress}}/api/audiofiles
 Accept: application/json
 
@@ -16,16 +17,29 @@ Accept: application/json
 GET {{TheJukeBox_HostAddress}}/api/audiofiles/stats
 Accept: application/json
 
-### Search audio files by name
-GET {{TheJukeBox_HostAddress}}/api/audiofiles/search-audio?term=blue
+### Search by file name
+GET {{TheJukeBox_HostAddress}}/api/audiofiles/search?q=blue
 Accept: application/json
 
-### OAuth setup instructions
+### Audio inside one folder
+GET {{TheJukeBox_HostAddress}}/api/audiofiles/folder/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs
+Accept: application/json
+
+### Query injection is rejected as 400 urn:jukebox:invalid-drive-identifier,
+### rather than being escaped into the Drive query.
+GET {{TheJukeBox_HostAddress}}/api/audiofiles/folder/' in parents or '1'='1
+Accept: application/json
+
+### Begin the OAuth flow
 GET {{TheJukeBox_HostAddress}}/api/auth/setup
 Accept: application/json
 
-### Stored token health
-GET {{TheJukeBox_HostAddress}}/api/auth/test-token
+### Is a Drive grant present? (file check only, spends no Drive quota)
+GET {{TheJukeBox_HostAddress}}/api/auth/status
 Accept: application/json
+
+### API reference (Development only)
+GET {{TheJukeBox_HostAddress}}/scalar/v1
+Accept: text/html
 
 ###

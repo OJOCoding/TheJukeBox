@@ -19,13 +19,13 @@
   </PropertyGroup>
 
   <!--
-    Warnings become errors once the legacy single-user auth files are deleted in
-    phase A4. Until then the pre-existing nullable violations in
-    API/GoogleAPI_Service.cs and CORE/GoogleAuthConfig.cs would block the build,
-    and fixing code that is about to be removed is wasted work.
+    Enabled in A1 once the tree reached zero warnings. The pre-existing nullable
+    violations that made this impractical lived in files A1 rewrote or deleted.
+    Keeping it on is what stops analyzer findings accumulating into background noise
+    that nobody reads.
   -->
   <PropertyGroup>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
 </Project>

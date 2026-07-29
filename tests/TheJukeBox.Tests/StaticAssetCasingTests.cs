@@ -33,8 +33,11 @@ public class StaticAssetCasingTests
     {
         var referenced = ReferencedAssets(htmlFile);
 
+        // Tests for an uppercase character rather than comparing against a lowercased
+        // copy: the comparison form invites a case-insensitive analyzer "fix" that
+        // would make this assertion always pass.
         var mixedCase = referenced
-            .Where(path => path != path.ToLowerInvariant())
+            .Where(path => path.Any(char.IsUpper))
             .ToArray();
 
         Assert.Empty(mixedCase);

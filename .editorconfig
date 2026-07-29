@@ -47,6 +47,13 @@ dotnet_diagnostic.CS8618.severity = warning
 # ConfigureAwait(false) is noise in an ASP.NET Core app (no sync context)
 dotnet_diagnostic.CA2007.severity = none
 
+# Test method names read as sentences (Escapes_backslashes_before_quotes), which is
+# the xUnit convention and worth more than CA1707's no-underscores rule.
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none
+
+[*.cs]
 # Naming: private fields _camelCase
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields
 dotnet_naming_rule.private_fields_underscore.style = underscore_prefix

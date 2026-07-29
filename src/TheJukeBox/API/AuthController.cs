@@ -1,184 +1,104 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using TheJukeBox.Diagnostics;
+using TheJukeBox.Errors;
 
-namespace TheJukeBox.API
+namespace TheJukeBox.API;
+
+/// <summary>
+/// The single-tenant Google OAuth flow. Superseded in A4.
+/// </summary>
+/// <remarks>
+/// Three things were removed outright rather than carried forward:
+/// <list type="bullet">
+/// <item>
+/// The callback built HTML by concatenating the raw <c>code</c> query parameter and
+/// <c>ex.Message</c> into a response body. That is reflected XSS, it echoed an OAuth
+/// authorization code back to whoever supplied it, and it shipped a second visual
+/// design language (Arial, rounded corners, green buttons) inside a product whose
+/// stylesheet asserts the exact opposite. It now redirects and renders nothing, so
+/// there is no injection surface left to get wrong.
+/// </item>
+/// <item>
+/// A <c>debug</c> endpoint returned every request header as JSON. That includes
+/// <c>Cookie</c> and <c>Authorization</c>, making it a credential-disclosure endpoint
+/// reachable by anyone.
+/// </item>
+/// <item>
+/// <c>CleanAuthorizationCode</c> stripped <c>&amp;</c>, <c>$</c>, <c>-</c> and
+/// whitespace from authorization codes. Real Google codes contain <c>-</c>, so it
+/// would have corrupted every code it touched; nothing called it.
+/// </item>
+/// </list>
+/// </remarks>
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController(
+    IGoogleAuthService authService,
+    ILogger<AuthController> logger) : ControllerBase
 {
-        [ApiController]
-        [Route("api/[controller]")]
-        public class AuthController : ControllerBase
+    /// <summary>Where the browser lands after the OAuth round trip.</summary>
+    /// <remarks>
+    /// A constant, never anything derived from the request. Building this from a
+    /// caller-supplied <c>returnUrl</c> without validating it as a same-origin path is
+    /// how redirect endpoints become open redirects.
+    /// </remarks>
+    private const string LandingPath = "/";
+
+    /// <summary>Begins the OAuth flow.</summary>
+    [HttpGet("setup")]
+    public IActionResult GetSetupInfo() => Ok(new
+    {
+        success = true,
+        message = "Open auth_url to grant this instance read-only access to your Drive.",
+        auth_url = authService.GetAuthorizationUrl(),
+
+        // Deliberately no config dump. The previous response included the OAuth client
+        // id and absolute filesystem paths, none of which a caller needs.
+    });
+
+    /// <summary>Reports whether this instance currently holds a Drive grant.</summary>
+    [HttpGet("status")]
+    public IActionResult GetStatus() => Ok(new
+    {
+        success = true,
+
+        // A file-existence check. The endpoint this replaces ran a live Files.List
+        // probe purely to answer "is the token good?", spending 100 quota units on
+        // every poll; a genuine failure surfaces on the next real library call anyway,
+        // as a typed drive-consent-required problem.
+        connected = authService.HasStoredToken(),
+    });
+
+    /// <summary>Google's OAuth redirect target.</summary>
+    [HttpGet("callback")]
+    public async Task<IActionResult> Callback(
+        [FromQuery] string? code,
+        [FromQuery] string? error,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(error))
         {
-            private readonly IGoogleAuthService _authService;
-
-            public AuthController(IGoogleAuthService authService)
-            {
-                _authService = authService;
-            }
-
-        [HttpGet("callback")]
-        public async Task<IActionResult> Callback([FromQuery] string code)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(code))
-                {
-                    return Content(@"
-                <html>
-                    <head><title>Error</title></head>
-                    <body style='font-family: Arial, sans-serif; padding: 20px;'>
-                        <h1>Missing Code</h1>
-                        <p>No authorization code found in the URL.</p>
-                        <p>Please try the authentication process again.</p>
-                    </body>
-                </html>", "text/html");
-                }
-
-                // Exchange code for token
-                var driveService = await _authService.ExchangeCodeForTokenAsync(code);
-
-                // Test the connection
-                var request = driveService.Files.List();
-                request.PageSize = 5;
-                request.Fields = "files(id, name)";
-                var result = await request.ExecuteAsync();
-
-                return Content(@"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Authentication Successful</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 40px; text-align: center; background: #f5f5f5; }
-                    .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
-                    .success { color: #4CAF50; font-size: 24px; }
-                    .button { background: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 10px; }
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='success'>Authentication Successful!</div>
-                    <p>Your Google Drive connection has been established.</p>
-                    <p><strong>Files accessible:</strong> " + result.Files.Count + @"</p>
-                    <p>You can now close this window and return to your application.</p>
-                    <button class='button' onclick='window.close()'>Close Window</button>
-                    <button class='button' onclick='location.href=""/swagger/index.html""'>Open API Docs</button>
-                </div>
-                <script>
-                    // Try to close the window automatically after 3 seconds
-                    setTimeout(function() {
-                        try { window.close(); } 
-                        catch(e) { /* ignore */ }
-                    }, 3000);
-                </script>
-            </body>
-            </html>", "text/html");
-            }
-            catch (System.Exception ex)
-            {
-                return Content(@"
-            <html>
-            <head><title>Error</title></head>
-            <body style='font-family: Arial, sans-serif; padding: 20px;'>
-                <h1>Authentication Failed</h1>
-                <p><strong>Error:</strong> " + ex.Message + @"</p>
-                <p><strong>Code used:</strong> " + code + @"</p>
-                <button onclick='window.close()'>Close</button>
-            </body>
-            </html>", "text/html");
-            }
-        }
-        private string CleanAuthorizationCode(string code)
-        {
-            if (string.IsNullOrEmpty(code)) return code;
-
-            // Remove common corruptions
-            code = code.Replace("&", "")
-                       .Replace("$", "")
-                       .Replace("-", "")
-                       .Replace("\n", "")
-                       .Replace("\r", "")
-                       .Replace(" ", "");
-
-            return code;
+            // Google's error slug is logged, not echoed, and is replaced by a fixed
+            // token so nothing caller-controlled reaches the response.
+            Log.ClientProblem(logger, ProblemTypes.Unauthenticated, "GET", "/api/auth/callback", error);
+            return Redirect($"{LandingPath}?authError=denied");
         }
 
-        [HttpGet("debug")]
-        public IActionResult DebugEndpoint()
+        if (string.IsNullOrEmpty(code))
         {
-            var debugInfo = new
-            {
-                Timestamp = DateTime.Now,
-                Headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString()),
-                QueryString = Request.QueryString.Value,
-                Host = Request.Host.Value,
-                Scheme = Request.Scheme,
-                IsHttps = Request.IsHttps
-            };
-
-            return Ok(debugInfo);
+            return Redirect($"{LandingPath}?authError=missing_code");
         }
-        [HttpGet("test-token")]
-        public async Task<IActionResult> TestToken()
+
+        try
         {
-            var hasToken = _authService.HasStoredToken();
-
-            if (!hasToken)
-            {
-                return Ok(new { status = "No token found" });
-            }
-
-            try
-            {
-                var driveService = await _authService.TryLoadExistingTokenAsync();
-                var request = driveService.Files.List();
-                request.PageSize = 5;
-                var result = await request.ExecuteAsync();
-
-                return Ok(new
-                {
-                    status = "Token is valid and working!",
-                    files_count = result.Files.Count,
-                    sample_files = result.Files.Select(f => f.Name)
-                });
-            }
-            catch (Exception ex)
-            {
-                return Ok(new
-                {
-                    status = "Token exists but is invalid",
-                    error = ex.Message
-                });
-            }
+            await authService.ExchangeCodeForTokenAsync(code, cancellationToken);
         }
-        [HttpGet("setup")]
-            public IActionResult GetSetupInfo()
-            {
-                try
-                {
-                    var authUrl = _authService.GetAuthorizationUrl();
-                    var configInfo = _authService.GetConfigInfo();
-
-                    return Ok(new
-                    {
-                        success = true,
-                        message = "🔧 First-time setup - Follow these steps:",
-                        steps = new[]
-                        {
-                        "1. Click the auth_url below to start OAuth flow",
-                        "2. Login with Google and accept permissions",
-                        "3. You'll be automatically redirected and authenticated",
-                        "4. Return to your app to use the Drive API"
-                    },
-                        auth_url = authUrl,
-                        config_info = configInfo
-                    });
-                }
-                catch (System.Exception ex)
-                {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        error = ex.Message
-                    });
-                }
-            }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Log.OAuthCallbackFailed(logger, e);
+            return Redirect($"{LandingPath}?authError=exchange_failed");
         }
+
+        return Redirect($"{LandingPath}?connected=1");
     }
+}
