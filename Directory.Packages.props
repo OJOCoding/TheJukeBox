@@ -1,0 +1,38 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Google Drive">
+    <PackageVersion Include="Google.Apis.Auth" Version="1.71.0" />
+    <PackageVersion Include="Google.Apis.Drive.v3" Version="1.71.0.3905" />
+  </ItemGroup>
+
+  <ItemGroup Label="API surface">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+  </ItemGroup>
+
+  <!--
+    Transitive pin. Microsoft.AspNetCore.OpenApi 10.0.10 resolves Microsoft.OpenApi
+    2.0.0, which is affected by CVE-2026-49451 (NU1903, high): a circular schema
+    reference causes unbounded recursion and a stack-overflow process kill. Fixed
+    in 2.7.5+. We only ever generate documents and never parse untrusted ones, and
+    the endpoint is Development-only, so exposure is negligible. Even so, a public
+    repo should not ship a flagged transitive dependency. Remove this pin once a
+    Microsoft.AspNetCore.OpenApi release depends on a fixed version directly.
+  -->
+  <ItemGroup Label="Security pins">
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+</Project>
