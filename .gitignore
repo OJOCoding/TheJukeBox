@@ -361,5 +361,28 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# ---------------------------------------------------------------------------
+# TheJukeBox
+# ---------------------------------------------------------------------------
+
+# Secrets. The two entries below were added AFTER a real client_secret and a live
+# refresh token had already been committed, so they protected nothing
+# retroactively -- the credentials had to be rotated at Google instead. The whole
+# directory is ignored now so no variant can slip through again. From A4 onward
+# the app reads credentials from user-secrets / environment variables and this
+# directory is not used at all.
+/AUTH/
 /AUTH/credentials.json
 /AUTH/Google.Apis.Auth.OAuth2.Responses.TokenResponse-user
+
+# Local runtime data: SQLite database, WAL sidecars, Data Protection keys,
+# and the on-disk caches. All disposable; never committed.
+/data/
+*.db
+*.db-wal
+*.db-shm
+/cache/
+
+# Claude Code local tooling and machine-specific launch config
+.claude/
+

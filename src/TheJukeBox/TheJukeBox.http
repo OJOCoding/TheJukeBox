@@ -1,0 +1,31 @@
+@TheJukeBox_HostAddress = https://localhost:7077
+
+### Landing page
+GET {{TheJukeBox_HostAddress}}/
+Accept: text/html
+
+### Player page
+GET {{TheJukeBox_HostAddress}}/player
+Accept: text/html
+
+### Full audio library
+GET {{TheJukeBox_HostAddress}}/api/audiofiles
+Accept: application/json
+
+### Library statistics
+GET {{TheJukeBox_HostAddress}}/api/audiofiles/stats
+Accept: application/json
+
+### Search audio files by name
+GET {{TheJukeBox_HostAddress}}/api/audiofiles/search-audio?term=blue
+Accept: application/json
+
+### OAuth setup instructions
+GET {{TheJukeBox_HostAddress}}/api/auth/setup
+Accept: application/json
+
+### Stored token health
+GET {{TheJukeBox_HostAddress}}/api/auth/test-token
+Accept: application/json
+
+###
