@@ -176,15 +176,18 @@ app.MapSessionEndpoint();
 app.MapLibraryEndpoints();
 app.MapStreamingEndpoints();
 
-// Anonymous on purpose. The page itself is not sensitive; it boots the shell, which
-// calls /api/session and renders the signed-out state when there is no session. Gating
-// the HTML would redirect a signed-out visitor to Google before they had asked to sign
-// in.
-app.MapGet("/player", (IWebHostEnvironment environment) =>
-        TypedResults.PhysicalFile(Path.Combine(environment.WebRootPath, "player.html"), "text/html"))
-    .AllowAnonymous();
-
 app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" })).AllowAnonymous();
+
+// An unmatched /api path must never fall through to the SPA fallback below. A fetch
+// that expects JSON and receives an HTML document fails in a far more confusing way
+// than a 404 does. Authorization still applies, so an anonymous caller gets 401 here
+// too and cannot probe which routes exist.
+app.Map("/api/{**rest}", () => Results.NotFound());
+
+// Deep links. The client router owns /library, /albums and the rest, so any
+// non-API path that is not a real file serves the shell and lets the client resolve it.
+// Without this, opening or refreshing a deep link 404s.
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 // --------------------------------------------------------------------------
 // Run
