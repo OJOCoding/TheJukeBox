@@ -100,6 +100,146 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                     b.ToTable("DriveTokens", (string)null);
                 });
 
+            modelBuilder.Entity("TheJukeBox.Domain.Track", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AddedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Album")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AlbumArtist")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Artist")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DiscNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DriveCreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DriveFileId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DriveModifiedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FileExtension")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Genre")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HeadRevisionId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Md5Checksum")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MetadataExtractedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MetadataFingerprint")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MetadataSource")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParentFolderId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParentFolderName")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RowVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SearchText")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("TrackNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DriveFileId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Tracks_UserId_DriveFileId");
+
+                    b.HasIndex("UserId", "RowVersion")
+                        .HasDatabaseName("IX_Tracks_RowVersion");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "AddedAtUtc")
+                        .HasDatabaseName("IX_Tracks_Browse_Added");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "Artist")
+                        .HasDatabaseName("IX_Tracks_Browse_Artist");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "Title")
+                        .HasDatabaseName("IX_Tracks_Browse_Title");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "Album", "DiscNumber", "TrackNumber")
+                        .HasDatabaseName("IX_Tracks_Browse_Album");
+
+                    b.ToTable("Tracks", (string)null);
+                });
+
             modelBuilder.Entity("TheJukeBox.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -163,6 +303,17 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                     b.HasOne("TheJukeBox.Domain.User", "User")
                         .WithOne("DriveToken")
                         .HasForeignKey("TheJukeBox.Domain.DriveToken", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.Track", b =>
+                {
+                    b.HasOne("TheJukeBox.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
