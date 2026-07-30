@@ -78,6 +78,7 @@ public static class LibraryEndpoints
                 t.FileExtension,
                 t.MimeType,
                 t.MetadataSource.ToString(),
+                t.ArtSha256,
                 t.DeletedAtUtc == null,
                 $"/api/tracks/{t.Id}/stream"))
             .ToListAsync(cancellationToken);
@@ -167,6 +168,16 @@ public sealed record TrackDto(
     string? Extension,
     string? MimeType,
     string MetadataSource,
+
+    /// <summary>
+    /// Content hash of the embedded cover image, or null when the file had none.
+    /// </summary>
+    /// <remarks>
+    /// The hash rather than a per-track art URL: every track on an album shares one image,
+    /// so the client requests and caches a single URL for the whole album.
+    /// </remarks>
+    string? ArtSha256,
+
     bool IsAvailable,
     string StreamUrl);
 

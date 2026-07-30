@@ -4,6 +4,7 @@ import { alertUser, announce, mmss, spoken } from './core/ui.js';
 import { api, handleUnauthenticatedWith } from './core/api.js';
 import { createRouter } from './core/router.js';
 import { createStore } from './core/store.js';
+import { bindMediaSession } from './player/mediasession.js';
 import { createPlayer } from './player/controller.js';
 import { renderLibrary } from './views/library.js';
 import { renderSyncProgress, renderWelcome } from './views/welcome.js';
@@ -155,6 +156,8 @@ function renderChrome(state) {
         `Repeat: ${repeat}. Activate for repeat ${repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off'}.`,
     );
 
+    renderArt(track);
+
     dom.duration.textContent = mmss(state.duration);
     dom.seek.max = String(Math.floor(state.duration || 0));
 
@@ -163,6 +166,39 @@ function renderChrome(state) {
         dom.seek.value = String(Math.floor(state.position || 0));
         dom.position.textContent = mmss(state.position);
     }
+}
+
+/**
+ * Shows the album art, falling back to a glyph.
+ *
+ * The frame has always been styled for a 48px image; before B1 it held a static emoji
+ * identical for every track, because nothing fetched cover art.
+ */
+function renderArt(track) {
+    const frame = dom.nowArt;
+
+    if (!track?.artSha256) {
+        frame.replaceChildren(document.createTextNode('♪'));
+        return;
+    }
+
+    const existing = frame.querySelector('img');
+
+    // Guarded, or every store update (including the position ticker) would replace the
+    // element and restart the image load.
+    if (existing?.dataset.sha === track.artSha256) return;
+
+    const image = new Image();
+    image.src = `/api/art/${track.artSha256}/96`;
+    image.alt = '';
+    image.width = 48;
+    image.height = 48;
+    image.dataset.sha = track.artSha256;
+
+    // Decorative: the title and artist are already announced as text beside it, so alt is
+    // empty rather than duplicating them.
+    image.addEventListener('error', () => frame.replaceChildren(document.createTextNode('♪')));
+    image.addEventListener('load', () => frame.replaceChildren(image));
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +296,113 @@ handleUnauthenticatedWith(() => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// Progressive web app
+// ---------------------------------------------------------------------------
+
+/**
+ * Registers the service worker and offers an update rather than forcing one.
+ */
+function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+
+    // Deferred until the page has loaded, so registration never competes with the first
+    // paint. But this is called from boot(), which awaits the session request first, and by
+    // then the load event has usually already fired -- so a bare addEventListener('load')
+    // silently never runs and the worker is never registered. Check the state as well as
+    // listening for the transition.
+    if (document.readyState === 'complete') {
+        void register();
+        return;
+    }
+
+    window.addEventListener('load', () => void register(), { once: true });
+
+    async function register() {
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+
+            registration.addEventListener('updatefound', () => {
+                const incoming = registration.installing;
+                if (!incoming) return;
+
+                incoming.addEventListener('statechange', () => {
+                    // "installed" with an existing controller means a new version is waiting.
+                    if (incoming.state === 'installed' && navigator.serviceWorker.controller) {
+                        offerUpdate(registration);
+                    }
+                });
+            });
+        } catch {
+            // A failed registration must never break the app. It only costs offline support.
+        }
+    }
+}
+
+let reloading = false;
+
+function offerUpdate(registration) {
+    // Deliberately not applied automatically. Activating a new worker under a live page can
+    // tear down the audio element mid-song, which is not a trade worth making to ship a CSS
+    // change a few seconds earlier. A cold start picks it up regardless.
+    if (store.state.playing) {
+        announce('An update is ready and will be applied when playback stops.');
+        return;
+    }
+
+    const banner = document.createElement('div');
+    banner.className = 'topbar__status';
+    banner.textContent = 'NEW BUILD AVAILABLE';
+
+    const reload = document.createElement('button');
+    reload.type = 'button';
+    reload.className = 'btn btn--sm';
+    reload.textContent = 'RELOAD';
+
+    reload.addEventListener('click', () => {
+        registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+    });
+
+    dom.topbar.append(banner, reload);
+    announce('A new version is available.');
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // Guarded: controllerchange can fire more than once, and an unguarded reload here
+        // is the classic way to build an infinite refresh loop.
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+    });
+}
+
+/**
+ * Reflects connectivity in the top bar.
+ */
+function watchConnectivity() {
+    const update = () => {
+        const offline = navigator.onLine === false;
+
+        dom.syncChip.hidden = !offline && dom.syncChip.textContent === '';
+
+        if (offline) {
+            // navigator.onLine only reports whether a network interface exists, so it says
+            // true on a captive portal or a dead uplink. It is reliable in one direction
+            // only: false really does mean offline.
+            dom.syncChip.hidden = false;
+            dom.syncChip.textContent = '⚠ OFFLINE';
+            alertUser('You are offline. Playback of already-buffered audio may continue.');
+        } else if (dom.syncChip.textContent.includes('OFFLINE')) {
+            dom.syncChip.textContent = '';
+            dom.syncChip.hidden = true;
+        }
+    };
+
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+
+    update();
+}
+
 async function boot() {
     try {
         const session = await api.session();
@@ -275,6 +418,14 @@ async function boot() {
     }
 
     renderChrome(store.state);
+
+    // Bound after the first render so the initial state does not fire handlers before the
+    // transport exists.
+    bindMediaSession({ player, store, audio: dom.audio });
+
+    watchConnectivity();
+    registerServiceWorker();
+
     await router.start();
 }
 

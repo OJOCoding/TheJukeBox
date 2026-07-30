@@ -6,7 +6,20 @@
     <title>JUKEBOX SYSTEM</title>
     <meta name="description" content="Stream your Google Drive music library.">
     <link rel="stylesheet" href="/css/app.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+
+    <!-- An SVG favicon so it can invert for dark browser chrome, which the previous
+         emoji data-URI could not do. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+    <!-- iOS ignores the manifest for the home-screen icon. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+
+    <link rel="manifest" href="/manifest.webmanifest">
+
+    <!-- The manifest's theme_color cannot be conditional, so the browser-chrome colour
+         needs one meta tag per scheme. -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 </head>
 <body>
     <!-- Keyboard users can reach the library without traversing the whole nav. -->
