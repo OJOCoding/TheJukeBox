@@ -17,6 +17,33 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
+            modelBuilder.Entity("TheJukeBox.Domain.AlbumArt", b =>
+                {
+                    b.Property<string>("Sha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("CreatedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Sha256");
+
+                    b.ToTable("AlbumArt", (string)null);
+                });
+
             modelBuilder.Entity("TheJukeBox.Domain.DriveSyncState", b =>
                 {
                     b.Property<Guid>("UserId")
