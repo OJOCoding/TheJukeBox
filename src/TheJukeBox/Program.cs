@@ -9,6 +9,7 @@ using TheJukeBox.Features.Auth;
 using TheJukeBox.Features.Library;
 using TheJukeBox.Features.Streaming;
 using TheJukeBox.Infrastructure.Drive;
+using TheJukeBox.Infrastructure.Metadata;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
 
@@ -96,6 +97,11 @@ builder.Services.AddScoped<IDriveLibraryClient, DriveLibraryClient>();
 // pending-set and the channel must be shared across requests; the worker resolves the
 // scoped synchroniser per job.
 builder.Services.AddScoped<LibrarySynchroniser>();
+
+// Tag reading. Behind an interface so the library choice stays swappable and the
+// extraction pipeline is testable without real audio files.
+builder.Services.AddSingleton<ITagReader, AtlTagReader>();
+builder.Services.AddScoped<MetadataEnricher>();
 builder.Services.AddSingleton<SyncDispatcher>();
 builder.Services.AddSingleton<ISyncDispatcher>(provider => provider.GetRequiredService<SyncDispatcher>());
 builder.Services.AddHostedService<SyncWorker>();
@@ -174,6 +180,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapSessionEndpoint();
 app.MapLibraryEndpoints();
+app.MapArtEndpoints();
 app.MapStreamingEndpoints();
 
 app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" })).AllowAnonymous();

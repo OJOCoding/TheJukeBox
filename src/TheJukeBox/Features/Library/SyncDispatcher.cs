@@ -92,7 +92,20 @@ internal sealed class SyncWorker(
 
                 var synchroniser = scope.ServiceProvider.GetRequiredService<LibrarySynchroniser>();
 
+                // Pass one: enumerate Drive and reconcile rows, with metadata derived from
+                // file names. Fast, and it leaves the library browsable and playable.
                 await synchroniser.SynchroniseAsync(userId, stoppingToken);
+
+                // Pass two: read embedded tags. Separate on purpose. Reading tags requires
+                // fetching bytes from inside every file, so folding it into pass one would
+                // mean a large library shows nothing for many minutes instead of appearing
+                // within seconds and filling in.
+                var enricher = scope.ServiceProvider.GetRequiredService<MetadataEnricher>();
+
+                // No DriveSyncState passed: the synchroniser has already marked the run
+                // Succeeded, and handing the enricher that row would have it reopen and
+                // rewrite progress fields for a run that is finished.
+                await enricher.EnrichAsync(userId, cancellationToken: stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

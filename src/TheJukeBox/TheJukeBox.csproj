@@ -29,6 +29,7 @@
       project that references this one.
     -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="z440.atl.core" />
   </ItemGroup>
 
 </Project>

@@ -16,6 +16,16 @@ public sealed class JukeBoxDbContext(DbContextOptions<JukeBoxDbContext> options)
 
     public DbSet<Track> Tracks => Set<Track>();
 
+    /// <summary>
+    /// Cover images, keyed by a hash of their bytes.
+    /// </summary>
+    /// <remarks>
+    /// Content-addressed rather than per-track: every track on an album carries a
+    /// byte-identical picture, so hashing dedupes an album to one row with no
+    /// album-grouping logic anywhere.
+    /// </remarks>
+    public DbSet<AlbumArt> AlbumArt => Set<AlbumArt>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);

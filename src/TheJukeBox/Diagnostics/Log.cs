@@ -137,6 +137,54 @@ internal static partial class Log
     public static partial void SyncAlreadyPending(ILogger logger, Guid userId);
 
     [LoggerMessage(
+        EventId = 1050,
+        Level = LogLevel.Information,
+        Message = "Metadata pass starting for {UserId}: {Candidates} track(s) need tags read.")]
+    public static partial void MetadataPassStarted(ILogger logger, Guid userId, int candidates);
+
+    [LoggerMessage(
+        EventId = 1051,
+        Level = LogLevel.Information,
+        Message = "Metadata pass for {UserId} finished: {Examined} examined, {Tagged} from tags, "
+                  + "{Guessed} from file names, {ArtStored} cover image(s) stored, "
+                  + "{RangeRequests} range request(s).")]
+    public static partial void MetadataPassCompleted(
+        ILogger logger,
+        Guid userId,
+        int examined,
+        int tagged,
+        int guessed,
+        int artStored,
+        int rangeRequests);
+
+    [LoggerMessage(
+        EventId = 1052,
+        Level = LogLevel.Debug,
+        Message = "No tag format recognised in {FileName} ({Hint}); falling back to the file name.")]
+    public static partial void TagFormatUnrecognised(ILogger logger, string fileName, string hint);
+
+    [LoggerMessage(
+        EventId = 1053,
+        Level = LogLevel.Warning,
+        Message = "Reading tags from {FileName} failed; falling back to the file name.")]
+    public static partial void TagReadFailed(ILogger logger, string fileName, Exception exception);
+
+    [LoggerMessage(
+        EventId = 1054,
+        Level = LogLevel.Warning,
+        Message = "Reading tags from {FileName} exceeded the range-request budget after "
+                  + "{RequestCount} request(s). Falling back to the file name rather than "
+                  + "downloading the whole file.")]
+    public static partial void MetadataBudgetExceeded(ILogger logger, string fileName, int requestCount);
+
+    [LoggerMessage(
+        EventId = 1055,
+        Level = LogLevel.Warning,
+        Message = "Metadata extraction failed for {FileName}. The sync continues; one bad file "
+                  + "must not fail the pass.")]
+    public static partial void MetadataFileFailed(ILogger logger, string fileName, Exception exception);
+
+    [LoggerMessage(
         EventId = 1040,
         Level = LogLevel.Information,
         Message = "Database is up to date at {DatabaseFile}; no migrations pending.")]
