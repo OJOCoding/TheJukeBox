@@ -35,6 +35,25 @@ internal sealed class DriveClientFactory(
 
     public async Task<DriveService> CreateAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        var credential = await AuthoriseAsync(userId, cancellationToken);
+
+        return new DriveService(new BaseClientService.Initializer
+        {
+            HttpClientInitializer = credential,
+            ApplicationName = ApplicationName,
+        });
+    }
+
+    public async Task<string> GetAccessTokenAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var credential = await AuthoriseAsync(userId, cancellationToken);
+
+        return credential.Token.AccessToken
+               ?? throw new DriveConsentRequiredException("Google issued no access token.");
+    }
+
+    private async Task<UserCredential> AuthoriseAsync(Guid userId, CancellationToken cancellationToken)
+    {
         var refreshToken = await tokenStore.GetRefreshTokenAsync(userId, cancellationToken)
                            ?? throw new DriveConsentRequiredException();
 
@@ -81,11 +100,7 @@ internal sealed class DriveClientFactory(
                 "Google rejected the stored authorisation. Please reconnect your Drive.");
         }
 
-        return new DriveService(new BaseClientService.Initializer
-        {
-            HttpClientInitializer = credential,
-            ApplicationName = ApplicationName,
-        });
+        return credential;
     }
 
     private async Task RetireAsync(Guid userId, string errorCode, CancellationToken cancellationToken)

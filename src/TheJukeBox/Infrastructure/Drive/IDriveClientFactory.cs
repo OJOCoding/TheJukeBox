@@ -20,4 +20,17 @@ public interface IDriveClientFactory
     /// The user has no usable grant, so the UI must prompt them to reconnect.
     /// </exception>
     Task<DriveService> CreateAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A currently valid OAuth access token for <paramref name="userId"/>.
+    /// </summary>
+    /// <remarks>
+    /// Needed because streaming bypasses the generated Drive client and talks to the
+    /// <c>alt=media</c> endpoint with a raw <see cref="HttpClient"/>. The generated client
+    /// wants to download into a stream it controls, which is precisely the behaviour that
+    /// forced whole files into memory; a raw request is what allows a client's Range
+    /// header to be forwarded and the response body piped straight through.
+    /// </remarks>
+    /// <exception cref="Errors.DriveConsentRequiredException">No usable grant.</exception>
+    Task<string> GetAccessTokenAsync(Guid userId, CancellationToken cancellationToken = default);
 }

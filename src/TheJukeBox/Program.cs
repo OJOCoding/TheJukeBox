@@ -2,12 +2,12 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
-using TheJukeBox.API;
 using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Errors;
 using TheJukeBox.Features.Auth;
 using TheJukeBox.Features.Library;
+using TheJukeBox.Features.Streaming;
 using TheJukeBox.Infrastructure.Drive;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
@@ -83,14 +83,14 @@ builder.Services.AddSingleton<ITokenProtector, DataProtectionTokenProtector>();
 // Services
 // --------------------------------------------------------------------------
 
-builder.Services.AddControllers();
-
+// No AddControllers: every endpoint is a minimal API now that the last controller is
+// gone. Leaving MVC registered would add model binding, filters, and an application
+// model this app does not use.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IDriveTokenStore, DriveTokenStore>();
 builder.Services.AddScoped<IDriveClientFactory, DriveClientFactory>();
 builder.Services.AddScoped<IDriveLibraryClient, DriveLibraryClient>();
-builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 
 // The library cache and its background refresh. SyncDispatcher is a singleton because the
 // pending-set and the channel must be shared across requests; the worker resolves the
@@ -99,6 +99,13 @@ builder.Services.AddScoped<LibrarySynchroniser>();
 builder.Services.AddSingleton<SyncDispatcher>();
 builder.Services.AddSingleton<ISyncDispatcher>(provider => provider.GetRequiredService<SyncDispatcher>());
 builder.Services.AddHostedService<SyncWorker>();
+
+// Named client for the Drive media endpoint. Registered so the handler and its
+// connection pool are shared; a new HttpClient per stream would exhaust sockets.
+// No Timeout: the default 100 seconds would abort a long file mid-playback, and the
+// request's own cancellation token is the correct bound here.
+builder.Services.AddHttpClient(StreamingEndpoints.HttpClientName, client =>
+    client.Timeout = Timeout.InfiniteTimeSpan);
 
 // --------------------------------------------------------------------------
 // Authentication and authorization
@@ -164,11 +171,10 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-
 app.MapAuthEndpoints();
 app.MapSessionEndpoint();
 app.MapLibraryEndpoints();
+app.MapStreamingEndpoints();
 
 // Anonymous on purpose. The page itself is not sensitive; it boots the shell, which
 // calls /api/session and renders the signed-out state when there is no session. Gating

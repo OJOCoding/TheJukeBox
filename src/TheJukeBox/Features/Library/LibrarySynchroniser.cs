@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using TheJukeBox.API;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Domain;
 using TheJukeBox.Infrastructure.Drive;
@@ -180,7 +179,7 @@ internal sealed class LibrarySynchroniser(
         var fingerprint = file.Md5Checksum
                           ?? $"{file.ModifiedAtUtc:O}|{file.SizeBytes}";
 
-        var extension = FileExtensions.Resolve(file.Name, file.MimeType);
+        var extension = AudioFormats.ResolveExtension(file.Name, file.MimeType);
 
         var metadataStale = track.MetadataSource == MetadataSource.None
                             || !string.Equals(track.MetadataFingerprint, fingerprint, StringComparison.Ordinal)
