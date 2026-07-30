@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -5,6 +6,8 @@ using TheJukeBox.API;
 using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Errors;
+using TheJukeBox.Features.Auth;
+using TheJukeBox.Infrastructure.Drive;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
 
@@ -81,8 +84,31 @@ builder.Services.AddSingleton<ITokenProtector, DataProtectionTokenProtector>();
 
 builder.Services.AddControllers();
 
-builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IDriveTokenStore, DriveTokenStore>();
+builder.Services.AddScoped<IDriveClientFactory, DriveClientFactory>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
+
+// --------------------------------------------------------------------------
+// Authentication and authorization
+// --------------------------------------------------------------------------
+// Bound directly rather than through IOptions because the auth handlers need these
+// values while the container is still being built. ValidateOnStart still applies.
+
+var appOptions = builder.Configuration.GetSection(AppOptions.SectionName).Get<AppOptions>()
+                 ?? new AppOptions();
+
+var googleOptions = builder.Configuration.GetSection(GoogleOAuthOptions.SectionName).Get<GoogleOAuthOptions>()
+                    ?? new GoogleOAuthOptions();
+
+builder.Services.AddJukeBoxAuthentication(appOptions, googleOptions);
+
+// Everything is authenticated unless it opts out. A fallback policy is the safe
+// default: forgetting an attribute leaves an endpoint closed rather than open, which
+// is the opposite of the previous design where nothing was protected at all.
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 // One exception handler, one response shape. Replaces the per-action
 // catch-and-return-BadRequest(ex.Message) blocks that used to be in every action.
@@ -104,6 +130,11 @@ var app = builder.Build();
 // Pipeline
 // --------------------------------------------------------------------------
 
+// First, before anything reads the scheme or host. Behind a TLS-terminating proxy
+// Kestrel otherwise sees plain HTTP, Request.IsHttps is false, and every Secure cookie
+// is silently dropped -- sign-in appears to work and then does nothing.
+app.UseForwardedHeaders(AuthenticationSetup.CreateForwardedHeadersOptions(appOptions));
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -120,10 +151,23 @@ app.UseStaticFiles();
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapControllers();
 
+app.MapAuthEndpoints();
+app.MapSessionEndpoint();
+
+// Anonymous on purpose. The page itself is not sensitive; it boots the shell, which
+// calls /api/session and renders the signed-out state when there is no session. Gating
+// the HTML would redirect a signed-out visitor to Google before they had asked to sign
+// in.
 app.MapGet("/player", (IWebHostEnvironment environment) =>
-    TypedResults.PhysicalFile(Path.Combine(environment.WebRootPath, "player.html"), "text/html"));
+        TypedResults.PhysicalFile(Path.Combine(environment.WebRootPath, "player.html"), "text/html"))
+    .AllowAnonymous();
+
+app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" })).AllowAnonymous();
 
 // --------------------------------------------------------------------------
 // Run

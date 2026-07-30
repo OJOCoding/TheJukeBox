@@ -1,5 +1,6 @@
 using Google.Apis.Drive.v3;
 using TheJukeBox.Diagnostics;
+using TheJukeBox.Features.Auth;
 using TheJukeBox.Infrastructure.Drive;
 using DriveData = Google.Apis.Drive.v3.Data;
 
@@ -32,9 +33,21 @@ public interface IGoogleDriveService
 /// date properties.
 /// </remarks>
 public sealed class GoogleDriveService(
-    IGoogleAuthService authService,
+    IDriveClientFactory driveClientFactory,
+    ICurrentUser currentUser,
     ILogger<GoogleDriveService> logger) : IGoogleDriveService
 {
+    /// <summary>
+    /// A Drive client for the user this request is acting as.
+    /// </summary>
+    /// <remarks>
+    /// Every Drive call routes through here, so the account whose Drive is read is
+    /// always the authenticated caller's. Previously all callers shared one token
+    /// stored under a fixed key, meaning any request read the instance owner's library.
+    /// </remarks>
+    private Task<DriveService> DriveAsync(CancellationToken cancellationToken) =>
+        driveClientFactory.CreateAsync(currentUser.RequireId(), cancellationToken);
+
     private const string AudioFields =
         "files(id, name, mimeType, size, createdTime, modifiedTime, webContentLink)";
 
@@ -95,7 +108,7 @@ public sealed class GoogleDriveService(
         string fileId,
         CancellationToken cancellationToken = default)
     {
-        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+        var driveService = await DriveAsync(cancellationToken);
 
         var request = driveService.Files.Get(DriveQuery.RequireFileId(fileId));
         request.Fields = SingleFileFields;
@@ -114,7 +127,7 @@ public sealed class GoogleDriveService(
         string fileId,
         CancellationToken cancellationToken = default)
     {
-        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+        var driveService = await DriveAsync(cancellationToken);
         var request = driveService.Files.Get(DriveQuery.RequireFileId(fileId));
 
         // TODO(A6): replace with a range-passthrough proxy. This pulls the entire file
@@ -133,7 +146,7 @@ public sealed class GoogleDriveService(
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var driveService = await authService.GetValidDriveServiceAsync(cancellationToken);
+        var driveService = await DriveAsync(cancellationToken);
 
         var request = driveService.Files.List();
         request.Q = query;
