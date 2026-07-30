@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -7,6 +7,7 @@ using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Errors;
 using TheJukeBox.Features.Auth;
+using TheJukeBox.Features.Library;
 using TheJukeBox.Infrastructure.Drive;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
@@ -88,7 +89,16 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IDriveTokenStore, DriveTokenStore>();
 builder.Services.AddScoped<IDriveClientFactory, DriveClientFactory>();
+builder.Services.AddScoped<IDriveLibraryClient, DriveLibraryClient>();
 builder.Services.AddScoped<IGoogleDriveService, GoogleDriveService>();
+
+// The library cache and its background refresh. SyncDispatcher is a singleton because the
+// pending-set and the channel must be shared across requests; the worker resolves the
+// scoped synchroniser per job.
+builder.Services.AddScoped<LibrarySynchroniser>();
+builder.Services.AddSingleton<SyncDispatcher>();
+builder.Services.AddSingleton<ISyncDispatcher>(provider => provider.GetRequiredService<SyncDispatcher>());
+builder.Services.AddHostedService<SyncWorker>();
 
 // --------------------------------------------------------------------------
 // Authentication and authorization
@@ -158,6 +168,7 @@ app.MapControllers();
 
 app.MapAuthEndpoints();
 app.MapSessionEndpoint();
+app.MapLibraryEndpoints();
 
 // Anonymous on purpose. The page itself is not sensitive; it boots the shell, which
 // calls /api/session and renders the signed-out state when there is no session. Gating
