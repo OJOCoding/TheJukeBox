@@ -1,0 +1,28 @@
+version: 2
+
+# Two CVEs reached this project through transitive dependencies during the revamp
+# (Microsoft.OpenApi and the native SQLite library), both caught only because
+# TreatWarningsAsErrors turns the NuGet audit into a build failure. Dependabot is the
+# other half of that: it opens the PR rather than waiting for the next build.
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Microsoft.* packages are versioned together, so one PR per week beats eight.
+      microsoft:
+        patterns:
+          - 'Microsoft.*'
+          - 'System.*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,4 +1,4 @@
-﻿namespace TheJukeBox.Errors;
+namespace TheJukeBox.Errors;
 
 /// <summary>
 /// An exception that already knows how it should be rendered to a client.

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using TheJukeBox.Errors;
 using TheJukeBox.Infrastructure.Drive;
 

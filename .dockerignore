@@ -1,0 +1,39 @@
+# Keeping the build context small makes the build faster and, more importantly, stops
+# local state and secrets from being copied into an image layer.
+
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/.idea
+
+.git
+.github
+.claude
+
+# Local runtime state. Copying a database or a Data Protection key ring into an image
+# would bake one machine's data, and its decryptable tokens, into a distributable artifact.
+data/
+**/*.db
+**/*.db-wal
+**/*.db-shm
+
+# Never build the credentials directory into an image. It is not used from A4 onward
+# (configuration and environment variables replaced it), but a stale one may still exist
+# in a working tree.
+AUTH/
+
+# Not needed to build or run the app.
+tests/
+docs/
+*.md
+!README.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+.env
+.env.example
+
+# Demo assets committed to the repo; several megabytes of no use to the image.
+*.zip
+project_thumbnail.png

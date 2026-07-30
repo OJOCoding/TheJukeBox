@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The frontend tests use Node's built-in runner, so there is no package.json and
+      # nothing to install -- but Node itself has to be present or the bridge test
+      # reports them as skipped and they are silently not enforced.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore
+
+      # Fails fast on formatting before spending time on a full build.
+      - name: Verify formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      # TreatWarningsAsErrors is on, so this also enforces the analyzer rules and the
+      # NuGet vulnerability audit that caught two CVEs during the revamp.
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # Catches the "changed the model, forgot to add a migration" mistake. For a
+      # self-hosted app that omission is a broken upgrade for every user, and it is
+      # invisible locally because the developer's database was created from the model.
+      # There is also a unit test asserting this; the CLI check fails more legibly.
+      - name: Check for missing migrations
+        run: |
+          dotnet tool restore
+          dotnet ef migrations has-pending-model-changes \
+            --project src/TheJukeBox/TheJukeBox.csproj
+
+      # Runs the C# suite and, via the bridge test, the JavaScript queue tests.
+      - name: Test
+        run: >
+          dotnet test --configuration Release --no-build
+          --logger "trx;LogFileName=results.trx"
+          --results-directory artifacts/test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/test
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: thejukebox:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The unconfigured path is the first thing a new self-hoster sees, which makes it
+      # exactly the thing most likely to rot unnoticed. Asserted explicitly: exit 78
+      # (EX_CONFIG) and a message that names the missing keys.
+      - name: Unconfigured start exits 78 with an explanation
+        run: |
+          set +e
+          output=$(docker run --rm thejukebox:ci 2>&1)
+          code=$?
+          set -e
+
+          echo "$output"
+          echo "exit code: $code"
+
+          if [ "$code" -ne 78 ]; then
+            echo "::error::Expected exit 78 (EX_CONFIG) when unconfigured, got $code"
+            exit 1
+          fi
+
+          echo "$output" | grep -q "CONFIGURATION REQUIRED" \
+            || { echo "::error::Missing the configuration banner"; exit 1; }
+
+          echo "$output" | grep -q "Authentication__Google__ClientId" \
+            || { echo "::error::Message does not name the missing key in env-var form"; exit 1; }
+
+      - name: Configured start serves /api/health
+        run: |
+          mkdir -p ci-data && chmod 777 ci-data
+
+          docker run -d --name jukebox-ci \
+            -e Authentication__Google__ClientId=000000000000-ci.apps.googleusercontent.com \
+            -e Authentication__Google__ClientSecret=GOCSPX-citestplaceholder000 \
+            -e App__PublicBaseUrl=http://localhost:8080 \
+            -v "$PWD/ci-data:/data" \
+            -p 8080:8080 \
+            thejukebox:ci
+
+          for i in $(seq 1 45); do
+            if curl -fsS http://localhost:8080/api/health >/dev/null 2>&1; then
+              echo "healthy after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS http://localhost:8080/api/health || {
+            echo "::error::/api/health never became reachable"
+            docker logs jukebox-ci
+            exit 1
+          }
+
+          # The library must never be readable without a session. This is the defect the
+          # revamp existed to fix, so it is worth asserting on every build.
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/tracks)
+          if [ "$status" != "401" ]; then
+            echo "::error::Anonymous /api/tracks returned $status, expected 401"
+            docker logs jukebox-ci
+            exit 1
+          fi
+
+          # The database and the Data Protection key ring must land on the volume, or an
+          # upgrade would silently lose every stored token.
+          docker exec jukebox-ci ls /data 2>/dev/null || ls -la ci-data
+          test -f ci-data/jukebox.db || { echo "::error::No database on the volume"; exit 1; }
+          test -d ci-data/keys || { echo "::error::No key ring on the volume"; exit 1; }
+
+          docker logs jukebox-ci
+          docker rm -f jukebox-ci
+
+  codeql:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: csharp, javascript
+
+      - run: dotnet build --configuration Release
+
+      - uses: github/codeql-action/analyze@v3

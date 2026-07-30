@@ -1,4 +1,4 @@
-﻿namespace TheJukeBox.Diagnostics;
+namespace TheJukeBox.Diagnostics;
 
 /// <summary>
 /// Source-generated log messages.

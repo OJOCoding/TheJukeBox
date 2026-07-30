@@ -1,0 +1,70 @@
+# One service. No database container, no Redis, no message broker: the library lives in a
+# SQLite file under /data and background sync is an in-process channel, because a sync is
+# idempotent and resumable from state already in the database.
+
+services:
+  jukebox:
+    build: .
+    # Or, once images are published:
+    # image: ghcr.io/ojocoding/thejukebox:latest
+
+    restart: unless-stopped
+
+    # Values live in .env, which is gitignored. Copy .env.example and fill it in.
+    env_file: .env
+
+    environment:
+      # Double underscores map to configuration nesting: Authentication:Google:ClientId.
+      Authentication__Google__ClientId: ${JUKEBOX_CLIENT_ID}
+      Authentication__Google__ClientSecret: ${JUKEBOX_CLIENT_SECRET}
+
+      # The absolute URL browsers reach this instance on, no trailing slash. Every OAuth
+      # redirect URI is derived from it, so it must match what is registered in Google
+      # Cloud Console exactly. Getting this wrong produces Google's opaque
+      # redirect_uri_mismatch, which says nothing about the cause.
+      App__PublicBaseUrl: ${APP_PUBLIC_BASE_URL}
+
+      # Only enable when this container is reached solely through your reverse proxy.
+      # It tells the app to trust X-Forwarded-Proto and X-Forwarded-Host from any peer;
+      # if the container is directly reachable, a client could then assert its own scheme
+      # and host.
+      App__TrustForwardedHeadersFromAnyProxy: ${APP_TRUST_PROXY:-true}
+
+    volumes:
+      # The SQLite database, the Data Protection key ring, and pre-migration backups.
+      #
+      # If the app exits complaining the data directory is not writable, this is almost
+      # always ownership: the container runs as uid 64198, so run
+      #   sudo chown -R 64198:64198 ./data
+      - ./data:/data
+
+    # Published to localhost only. Put a TLS-terminating reverse proxy in front rather
+    # than exposing this port to the internet: the session cookie is marked Secure when
+    # PublicBaseUrl is https, and browsers will not send a Secure cookie over plain HTTP.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+# ---------------------------------------------------------------------------
+# Reverse proxy
+# ---------------------------------------------------------------------------
+# Caddy gets you automatic TLS and the correct X-Forwarded-* headers in two lines.
+# Uncomment, point music.example.com at this host, and set APP_PUBLIC_BASE_URL to
+# https://music.example.com.
+#
+#  caddy:
+#    image: caddy:2
+#    restart: unless-stopped
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./Caddyfile:/etc/caddy/Caddyfile
+#      - caddy_data:/data
+#
+# Caddyfile:
+#   music.example.com {
+#       reverse_proxy jukebox:8080
+#   }
+#
+# volumes:
+#   caddy_data:

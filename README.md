@@ -1,202 +1,190 @@
-﻿# JukeBox - Google Drive Music Player
+# TheJukeBox
 
-A professional web application that transforms your Google Drive into a personal music streaming service. Built with ASP.NET Core and featuring a technical blueprint-inspired interface.
+Self-hosted music streaming from your own Google Drive. Sign in with Google, grant
+read-only access to your Drive, and TheJukeBox indexes your audio files and streams them
+to a browser.
 
-# Overview
-JukeBox provides a seamless interface for streaming audio files directly from your Google Drive storage. The application features a unique monochrome design with technical blueprint aesthetics, offering both functionality and visual appeal.
+Built with ASP.NET Core on .NET 10 and a dependency-free vanilla-JavaScript frontend, in a
+deliberately monochrome "technical blueprint" style.
 
-# Features
-- Cloud Music Streaming - Directly play audio files from Google Drive storage
+> **Status: work in progress.** The backend is complete and tested; the frontend has a
+> working library and playback. Several features are not built yet — see
+> [What is not built yet](#what-is-not-built-yet). Read that section before deploying
+> this for anyone but yourself.
 
-- Automatic Library Synchronization - Real-time detection of audio files in your Drive
+## How it works
 
-- Comprehensive Player Controls - Play, pause, next, previous, shuffle, and repeat functionality
+- **Sign in with Google.** Each user gets their own account and sees only their own music.
+  Your Drive refresh token is encrypted at rest and never leaves the server.
+- **Read-only access.** TheJukeBox requests `drive.readonly` and nothing more. It cannot
+  create, modify, or delete anything in your Drive.
+- **Your library is indexed, not copied.** A background sync lists your audio files and
+  caches their metadata in a local SQLite database, so browsing and searching are instant
+  and work even when Drive is slow.
+- **Metadata comes from your files.** Embedded ID3/Vorbis/MP4 tags supply artist, album,
+  track number, duration, and cover art. Files without tags fall back to parsing the file
+  name and folder. Tags are read using HTTP range requests — only the few hundred
+  kilobytes containing them, not the whole file.
+- **Audio is proxied, not downloaded.** Streaming forwards the browser's `Range` header
+  straight through to Drive, so seeking is instant and the server holds one small buffer
+  regardless of file size.
 
-- Responsive Design - Optimized for both desktop and mobile devices
+Supported formats: MP3, FLAC, WAV, OGG, Opus, M4A/AAC, WMA.
 
-- Technical Blueprint Interface - Professional monochrome design with blueprint-inspired aesthetics
+## Quick start with Docker
 
-- High Performance - Built with modern web technologies for optimal efficiency
+You need a Google Cloud project with the Drive API enabled and an OAuth client. The
+walkthrough is in **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)** — including one setting
+that will otherwise break your instance every seven days.
 
-# Quick Start Guide
-# Prerequisites
-- .NET 8.0 SDK
-
-- Google Cloud Platform account
-
-- Google Drive account with audio files
-
-# Installation Steps
-
-- Clone the Repository
-
-``` 
-git clone https://github.com/yourusername/jukebox.git
-cd jukebox
-```
-
-# Configure Google Cloud Platform
-
-- Navigate to Google Cloud Console
-
-- Create a new project or select an existing one
-
-- Enable the Google Drive API
-
-- Create OAuth 2.0 credentials (Desktop application type)
-
-- Add authorized redirect URI: https://localhost:7077/api/auth/callback
-
-# Application Configuration
-
--  Place your credentials.json file in the AUTH directory
-
--  Verify the folder structure matches:
-
-```
-TheJukeBox/
-├── AUTH/
-│   └── credentials.json
-├── CLIENT/
-│   ├── CSS/
-│   ├── JS/
-│   ├── index.html
-│   └── player.html
-```
-
-# Launch Application
-
-```dotnet run```
-
-Access the application at https://localhost:7077
-
-# Initial Setup Procedure
-
-- Open https://localhost:7077 in your web browser
-
-- Select "INITIATE PLAYER"
-
-- Complete Google account authentication
-
-- Grant necessary permissions for Google Drive access
-
-- Begin music playback from your library
-
-# User Guide
-
-# Basic Operation
-
-- Track Selection - Click any track in the playlist to select and begin playback
-
-- Spacebar - Toggle play/pause
-
-- Arrow Left - Navigate to previous track
-
-- Arrow Right - Navigate to next track
-
-- S Key - Activate/deactivate shuffle mode
-
-- R Key - Activate/deactivate repeat mode
-
-# Player Functionality
-
-- Shuffle Mode - Randomizes track playback sequence
-
-- Repeat Mode - Continuously loops current track
-
-- Dynamic Library Updates - Refresh to access newly added files
-
-- Comprehensive Metadata - Displays file format, size, and technical information
-
-# Technical Specifications
-- System Architecture
-```
-Frontend Layer (CLIENT/)     Backend Layer (ASP.NET Core API)
-├── HTML/CSS/JavaScript      ├── Controller Management
-├── Technical UI Interface   ├── Service Layer
-└── Responsive Framework     └── Google Drive API Integration
-```
-
-# Supported Audio Formats
-
-- MP3 (.mp3)
-- WAV (.wav)
-- M4A (.m4a)
-- FLAC (.flac)
-- OGG (.ogg)
-- AAC (.aac)
-
-# API Endpoints
-
-```bash 
-GET  /api/audiofiles                 # Retrieve all audio files
-GET  /api/audiofiles/search          # Search files by filename
-GET  /api/audiofiles/download/{id}   # Stream audio content
-GET  /api/auth/setup                 # OAuth configuration
-GET  /api/auth/callback              # OAuth authentication handler
-```
-# Development Information
-## Project Architecture
-```
-TheJukeBox/
-├── API/
-│   ├── HomeController.cs
-│   ├── PlayerController.cs
-│   ├── AudioFilesController.cs
-│   └── AuthController.cs
-│   ├── IGoogleAuthService.cs
-│   ├── GoogleAPI_Service.cs
-│   └── GoogleDriveService.cs
-├── CORE/ GoogleAuthConfig.cs
-├── CLIENT/
-│   ├── CSS/ (Technical-styled CSS)
-│   ├── JS/ (Player functionality)
-│   └── HTML Pages (Frontend interfaces)
-└── AUTH/ (OAuth configuration files)
-```
-
-# Build Instructions
-## Restore project dependencies
-dotnet restore
-## Compile project
-dotnet build
-## Execute with development configuration
-dotnet run --environment Development
-## Execute with production configuration  
-dotnet run --environment Production
-
-# Security and Privacy
-
-- OAuth 2.0 Protocol - Secure Google account integration
-
-- Read-Only Permissions - Application accesses audio files in read-only mode
-
-- Local Token Management - Authentication tokens stored locally on client machine
-
-- Zero Data Collection - No user information transmitted to external servers
-
-# Deployment Options
-## Self-Hosted Deployment
 ```bash
-dotnet publish -c Release -o ./publish
-cd publish
-dotnet TheJukeBox.dll
+git clone https://github.com/OJOCoding/TheJukeBox.git
+cd TheJukeBox
+
+cp .env.example .env
+# Edit .env: client id, client secret, and the public URL of your instance.
+
+mkdir -p data && sudo chown -R 64198:64198 data
+
+docker compose up -d
 ```
 
-## Container Deployment
+Put a TLS-terminating reverse proxy in front of it. The session cookie is marked `Secure`
+whenever `App__PublicBaseUrl` is `https`, and browsers will not send a `Secure` cookie over
+plain HTTP — so serving this over bare HTTP on a LAN works, but over the internet it must
+be HTTPS. `docker-compose.yml` has a commented Caddy block that handles TLS in two lines.
+
+## Running locally
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download). Node is optional and
+only used to run the frontend tests.
+
+```bash
+# Credentials go in user-secrets, never in appsettings.json (which is committed).
+dotnet user-secrets set "Authentication:Google:ClientId"     "<your-client-id>"     --project src/TheJukeBox
+dotnet user-secrets set "Authentication:Google:ClientSecret" "<your-client-secret>" --project src/TheJukeBox
+
+dotnet run --project src/TheJukeBox --launch-profile https
 ```
-dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
-WORKDIR /app
-COPY ./publish .
-ENTRYPOINT ["dotnet", "TheJukeBox.dll"]
+
+Then open <https://localhost:7077>. Register `https://localhost:7077/api/auth/callback` as
+a redirect URI in Cloud Console; the app logs the exact URIs it will use at startup.
+
+Starting without credentials is not a crash — it prints which settings are missing, in both
+configuration-key and environment-variable form, and exits with code 78 (`EX_CONFIG`).
+
+For plain HTTP use `--launch-profile http`, which serves <http://localhost:5255> and avoids
+the dev-certificate prompt. To trust the dev certificate instead:
+`dotnet dev-certs https --trust`.
+
+## Testing
+
+```bash
+dotnet test
 ```
 
-# License
-This project operates under the MIT License. Refer to the LICENSE file for complete details.
+165 tests. This also runs the frontend's JavaScript tests through a bridge, using Node's
+built-in test runner — there is no `package.json` and nothing to install. If Node is
+absent they are reported as skipped in the test output. To run them directly:
 
-# Acknowledgments
+```bash
+node --test tests/js/queue.test.mjs
+```
 
-- Google Drive API for cloud storage integration
-- ASP.NET Core framework for backend infrastructure
-- Modern web standards ensuring cross-browser compatibility
+## Configuration
+
+Every setting can be supplied as a configuration key or as an environment variable, where
+`:` becomes `__`.
+
+| Key | Environment variable | Required | Notes |
+|---|---|---|---|
+| `Authentication:Google:ClientId` | `Authentication__Google__ClientId` | yes | OAuth client id |
+| `Authentication:Google:ClientSecret` | `Authentication__Google__ClientSecret` | yes | OAuth client secret |
+| `App:PublicBaseUrl` | `App__PublicBaseUrl` | yes | Absolute URL, no trailing slash |
+| `App:TrustForwardedHeadersFromAnyProxy` | `App__TrustForwardedHeadersFromAnyProxy` | no | Only when a proxy is the sole ingress |
+| `Storage:DataPath` | `Storage__DataPath` | no | Defaults to `/data` in a container |
+| `Storage:AutoMigrate` | `Storage__AutoMigrate` | no | Default `true` |
+| `Storage:BackupsToKeep` | `Storage__BackupsToKeep` | no | Default `5`; `0` disables |
+
+Everything mutable lives in one directory (`/data`): the SQLite database, the Data
+Protection key ring, and pre-migration backups. **Back it up as a unit.** Losing the key
+ring makes every stored refresh token undecryptable and forces all users to reconnect.
+
+## API
+
+All endpoints require an authenticated session except where noted. Errors are
+[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem responses with stable
+`urn:jukebox:*` type values.
+
+| Method | Route | Notes |
+|---|---|---|
+| GET | `/api/health` | Anonymous |
+| GET | `/api/session` | Anonymous; always 200. What the frontend boots from |
+| GET | `/api/auth/login?returnUrl=` | Anonymous; redirects to Google |
+| POST | `/api/auth/logout` | |
+| GET | `/api/auth/me` | |
+| POST | `/api/auth/drive/disconnect` | Forgets the Drive grant |
+| GET | `/api/tracks?q=&sort=&limit=&offset=` | `sort`: `title`, `artist`, `album`, `added`, `duration` |
+| GET | `/api/tracks/{id}/stream` | `GET` and `HEAD`; honours `Range` |
+| GET | `/api/art/{sha256}/{size}` | `size`: 96 or 640 |
+| GET | `/api/sync/status` | |
+| POST | `/api/sync` | Idempotent; 202 whether or not it queued new work |
+
+In Development an OpenAPI document is at `/openapi/v1.json` with a browsable reference at
+`/scalar/v1`.
+
+## What is not built yet
+
+Being explicit, because the previous version of this file described features that did not
+exist:
+
+- **Playlists and a saved queue.** Playback works and a queue exists in memory, but
+  nothing is persisted between sessions.
+- **Incremental sync.** Every sync is a full listing. It works, and it is paginated
+  correctly, but it does not yet use Drive's `changes` API, and there is no timer — sync
+  runs when you ask it to.
+- **Album and artist browsing.** The data is indexed and sortable; the dedicated views
+  are not built.
+- **Offline support and PWA install.** Not started.
+- **Media Session integration.** Lock-screen and hardware media keys are not wired up.
+- **Virtualized list rendering.** The library renders all rows, so a library of many
+  thousands of tracks will feel heavy.
+- **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block
+  cross-site POST in the meantime.
+- **Shared drives, shortcuts, and multi-parent files** are out of scope.
+
+Tag extraction has unit-tested plumbing but has not yet been exercised against a corpus of
+real tagged audio files.
+
+## Architecture
+
+```
+src/TheJukeBox/
+  Features/{Auth,Library,Streaming}/   endpoints and handlers, by feature
+  Infrastructure/{Drive,Metadata,Persistence,Security}/
+  Domain/                              entities
+  Configuration/                       options, validation, path resolution
+  Errors/                              problem types and the exception handler
+  wwwroot/                             the frontend: no build step, no npm
+tests/TheJukeBox.Tests/                xUnit
+tests/js/                              frontend tests, Node's built-in runner
+```
+
+Minimal APIs throughout; there are no MVC controllers. SQLite via EF Core, migrations
+applied at startup after a `VACUUM INTO` backup.
+
+## Security
+
+- Read-only Drive scope, and per-user tokens: one user's session can never reach another
+  user's library.
+- Refresh tokens encrypted at rest with the Data Protection API.
+- No CORS policy at all — the frontend is same-origin, so cross-origin access is never
+  needed.
+- OAuth uses the framework handler, which supplies `state` and PKCE.
+- Requests are denied by default: an endpoint must opt out of authentication explicitly.
+
+Found something? Open an issue. Please do not include tokens or database files.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

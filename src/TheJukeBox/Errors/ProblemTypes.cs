@@ -1,4 +1,4 @@
-﻿namespace TheJukeBox.Errors;
+namespace TheJukeBox.Errors;
 
 /// <summary>
 /// Stable machine-readable <c>type</c> values for RFC 9457 problem responses.
