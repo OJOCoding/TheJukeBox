@@ -1,0 +1,626 @@
+@import url('tokens.css');
+@import url('base.css');
+
+/* ===========================================================================
+   APP SHELL
+   ---------------------------------------------------------------------------
+   Replaces index.css and player.css. Those styled two separate documents that
+   the server rendered independently; there is now one document whose middle
+   region the client router swaps, so the chrome and the transport are defined
+   once and never re-rendered.
+
+   The reset, blueprint grid, selection colour, focus ring and the pressable
+   control surface all still come from base.css.
+   =========================================================================== */
+
+/* The three-row grid is what keeps the transport pinned while only #view
+   scrolls. The previous player nested a scrolling playlist inside a scrolling
+   page, so the wrong thing moved under the wheel. */
+body {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100dvh;
+}
+
+#view {
+    /* min-height: 0 is required, not decorative: a grid item defaults to
+       min-content, which would let a long list push the transport off-screen
+       instead of scrolling inside its own row. */
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* --- Accessibility utilities --------------------------------------------- */
+
+/* Visually hidden but still announced. clip-path over display:none, because a
+   hidden element is removed from the accessibility tree and a live region that
+   is not in the tree announces nothing. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.skip-link {
+    position: absolute;
+    inset-block-start: -100px;
+    inset-inline-start: var(--space-8);
+    z-index: var(--layer-overlay);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    padding: var(--space-8) var(--space-16);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.skip-link:focus-visible {
+    inset-block-start: var(--space-8);
+}
+
+/* --- Top bar -------------------------------------------------------------- */
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-12) var(--space-20);
+    background: var(--color-recess);
+    border-bottom: var(--border-heavy) solid var(--color-ink);
+    flex-wrap: wrap;
+}
+
+.topbar__brand {
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+}
+
+.topbar__nav {
+    display: flex;
+    gap: var(--space-8);
+}
+
+.topbar__spacer {
+    flex: 1;
+}
+
+.topbar__status {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-ink-secondary);
+}
+
+.navlink {
+    color: var(--color-ink);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-size: var(--text-sm);
+    padding: var(--space-8) var(--space-12);
+    border: var(--border-medium) solid transparent;
+}
+
+.navlink:hover {
+    background: var(--color-row-hover);
+}
+
+/* Driven by the same attribute assistive tech reads, so the visible state and
+   the announced state cannot drift apart. */
+.navlink[aria-current="page"] {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* --- Welcome / signed-out view ------------------------------------------- */
+/* Formerly the whole landing document. Now a view inside the shell, so the
+   centring is scoped here rather than applied to body. */
+.welcome {
+    display: flex;
+    min-height: 100%;
+    padding: var(--space-20);
+}
+
+.panel {
+    /* Auto margins centre while free space exists and resolve to zero when it
+       runs out, so an over-tall panel overflows in both directions and stays
+       reachable. place-items:center would clip it. */
+    margin: auto;
+    text-align: center;
+    background: var(--color-surface);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+    padding: var(--space-60) var(--space-40);
+    max-width: var(--width-landing);
+    width: 90%;
+    position: relative;
+    box-shadow: var(--shadow-raised);
+}
+
+h1 {
+    font-size: var(--text-6xl);
+    font-weight: var(--weight-bold);
+    color: var(--color-ink);
+    margin-bottom: var(--space-20);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    border-bottom: var(--border-heavy) solid var(--color-ink);
+    padding-bottom: var(--space-15);
+    display: inline-block;
+}
+
+.tagline {
+    font-size: var(--text-lg);
+    color: var(--color-ink-secondary);
+    margin-bottom: var(--space-40);
+    font-weight: var(--weight-regular);
+    border: var(--border-hairline) solid var(--color-ink);
+    padding: var(--space-15);
+    background: var(--color-recess);
+}
+
+.buttons {
+    display: flex;
+    gap: var(--space-20);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* Geometry only; surface, press interaction and focus ring come from base.css. */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-12);
+    padding: var(--space-16) var(--space-32);
+    font-size: var(--text-md);
+    position: relative;
+    /* WCAG 2.5.8 target size. */
+    min-height: 44px;
+}
+
+.btn--sm {
+    padding: var(--space-8) var(--space-12);
+    font-size: var(--text-xs);
+    min-height: 36px;
+}
+
+.btn:focus-visible {
+    outline-offset: var(--focus-offset-wide);
+}
+
+.btn-primary {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+.btn-primary:hover {
+    background: var(--color-ink-secondary);
+}
+
+/* An engaged toggle, keyed off the attribute assistive tech reads. There was
+   previously no styled state at all for shuffle and repeat, so an active toggle
+   looked identical to an idle one. */
+.btn[aria-pressed="true"],
+.btn[data-state]:not([data-state="off"]) {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+.status {
+    position: absolute;
+    top: var(--space-20);
+    right: var(--space-20);
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-weight: var(--weight-semibold);
+}
+
+.status-dot {
+    width: var(--status-dot-size);
+    height: var(--status-dot-size);
+    background: var(--color-signal);
+    border: var(--border-hairline) solid var(--color-ink);
+    animation: pulse var(--duration-pulse) infinite;
+}
+
+/* Offline or degraded: hollow rather than green, so the state is not carried by
+   colour alone. */
+.status-dot[data-state="offline"] {
+    background: var(--color-surface);
+    animation: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* --- Library view -------------------------------------------------------- */
+.view-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-20);
+    border-bottom: var(--border-medium) solid var(--color-ink);
+    flex-wrap: wrap;
+}
+
+.view-header h2 {
+    font-size: var(--text-2xl);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.view-header__count {
+    font-size: var(--text-sm);
+    color: var(--color-ink-tertiary);
+}
+
+.field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    padding-inline: var(--space-12);
+    box-shadow: var(--shadow-control);
+}
+
+.field:focus-within {
+    box-shadow: var(--shadow-pressed);
+    transform: translate(var(--press-shift-hover), var(--press-shift-hover));
+}
+
+.field__prompt {
+    color: var(--color-ink-tertiary);
+    user-select: none;
+}
+
+.field input {
+    flex: 1;
+    min-inline-size: 0;
+    appearance: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    padding-block: var(--space-12);
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    color: var(--color-ink);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.field input::placeholder {
+    color: var(--color-ink-tertiary);
+}
+
+.list {
+    list-style: none;
+}
+
+.list-row {
+    display: grid;
+    grid-template-columns: 3rem 1fr 14rem 14rem 5rem;
+    gap: var(--space-12);
+    align-items: center;
+    padding: var(--space-12) var(--space-20);
+    border-bottom: var(--border-hairline) solid var(--color-ink);
+    cursor: pointer;
+    position: relative;
+    min-height: 56px;
+}
+
+.list-row:hover {
+    background: var(--color-row-hover);
+}
+
+/* The list cursor. Distinct from "playing", because the two are different
+   states and a keyboard user moves one without changing the other. */
+.list-row[aria-selected="true"] {
+    outline: var(--border-medium) dashed currentColor;
+    outline-offset: -4px;
+}
+
+/* The playing track. */
+.list-row[aria-current="true"] {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* Non-colour redundancy for the playing state: a signal rule and a glyph, so
+   the information survives greyscale and colour-blindness. */
+.list-row[aria-current="true"]::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: var(--border-heavy);
+    background: var(--color-signal);
+}
+
+.list-row[aria-current="true"] .list-row__num::after {
+    content: " \25B6";
+}
+
+.list-row__num,
+.list-row__duration {
+    color: var(--color-ink-tertiary);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.list-row[aria-current="true"] .list-row__num,
+.list-row[aria-current="true"] .list-row__duration {
+    color: var(--color-surface);
+}
+
+.list-row__title {
+    font-weight: var(--weight-semibold);
+}
+
+.list-row__artist,
+.list-row__album {
+    color: var(--color-ink-secondary);
+    font-size: var(--text-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-row[aria-current="true"] .list-row__artist,
+.list-row[aria-current="true"] .list-row__album {
+    color: var(--color-surface);
+}
+
+.notice {
+    padding: var(--space-40) var(--space-20);
+    text-align: center;
+    color: var(--color-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.notice--error {
+    color: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    margin: var(--space-20);
+    background: var(--color-recess);
+}
+
+/* --- Progress ------------------------------------------------------------ */
+.progress {
+    border: var(--border-medium) solid var(--color-ink);
+    height: var(--space-20);
+    margin: var(--space-20) 0;
+    background: var(--color-surface);
+}
+
+.progress__fill {
+    height: 100%;
+    background: var(--color-ink);
+    inline-size: 0;
+}
+
+/* --- Transport ----------------------------------------------------------- */
+.transport {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "art meta controls"
+        "seek seek seek";
+    gap: var(--space-12) var(--space-16);
+    align-items: center;
+    padding: var(--space-12) var(--space-20);
+    background: var(--color-recess);
+    border-top: var(--border-heavy) solid var(--color-ink);
+}
+
+.transport__art {
+    grid-area: art;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    font-size: var(--text-xl);
+}
+
+.transport__meta {
+    grid-area: meta;
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+}
+
+.transport__title,
+.transport__sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.transport__title {
+    font-weight: var(--weight-semibold);
+}
+
+.transport__sub {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+}
+
+.transport__controls {
+    grid-area: controls;
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.transport__seek {
+    grid-area: seek;
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+}
+
+.transport__time {
+    font-size: var(--text-xs);
+    color: var(--color-ink-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+    box-shadow: var(--shadow-control);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    transition: var(--transition-base);
+}
+
+.icon-btn:hover {
+    transform: translate(var(--press-shift-hover), var(--press-shift-hover));
+    box-shadow: var(--shadow-pressed);
+}
+
+.icon-btn:active {
+    transform: translate(var(--press-shift-active), var(--press-shift-active));
+    box-shadow: var(--shadow-flush);
+}
+
+.icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--shadow-control);
+}
+
+/* A native range input, so the slider role, value semantics, pointer handling
+   and keyboard interaction all come from the platform rather than being
+   reimplemented with div and ARIA. Only the paint is customised. */
+.range {
+    appearance: none;
+    flex: 1;
+    min-inline-size: 0;
+    height: var(--space-20);
+    background: transparent;
+    cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+    height: var(--space-8);
+    background: var(--color-surface);
+    border: var(--border-medium) solid var(--color-ink);
+}
+
+.range::-moz-range-track {
+    height: var(--space-8);
+    background: var(--color-surface);
+    border: var(--border-medium) solid var(--color-ink);
+}
+
+.range::-webkit-slider-thumb {
+    appearance: none;
+    width: var(--space-16);
+    height: var(--space-20);
+    margin-top: -8px;
+    background: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+}
+
+.range::-moz-range-thumb {
+    width: var(--space-16);
+    height: var(--space-20);
+    background: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+}
+
+/* --- Responsive ---------------------------------------------------------- */
+/* Literal breakpoints: @media cannot read custom properties. */
+@media (max-width: 768px) {
+    .panel {
+        padding: var(--space-40) var(--space-25);
+    }
+
+    h1 {
+        font-size: var(--text-5xl);
+        letter-spacing: var(--tracking-wide);
+    }
+
+    .tagline {
+        font-size: var(--text-base);
+    }
+
+    .buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-15);
+    }
+
+    .btn {
+        width: 100%;
+        max-width: 280px;
+    }
+
+    /* Artist and album are the first things to go: title and duration carry the
+       row on a narrow screen. */
+    .list-row {
+        grid-template-columns: 2.5rem 1fr 4rem;
+    }
+
+    .list-row__artist,
+    .list-row__album {
+        display: none;
+    }
+
+    .transport {
+        grid-template-areas:
+            "art meta meta"
+            "controls controls controls"
+            "seek seek seek";
+    }
+
+    .transport__controls {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .topbar {
+        gap: var(--space-8);
+        padding: var(--space-8) var(--space-12);
+    }
+
+    .list-row {
+        padding-inline: var(--space-12);
+    }
+}

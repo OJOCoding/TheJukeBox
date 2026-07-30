@@ -1,27 +1,105 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JUKEBOX SYSTEM</title>
-    <link rel="stylesheet" href="/css/index.css">
+    <meta name="description" content="Stream your Google Drive music library.">
+    <link rel="stylesheet" href="/css/app.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
 </head>
 <body>
-    <div class="container">
-        <div class="status">
-            <div class="status-dot"></div>
-            <span>SYSTEM ONLINE</span>
+    <!-- Keyboard users can reach the library without traversing the whole nav. -->
+    <a class="skip-link" href="#view">SKIP TO CONTENT</a>
+
+    <!--
+      Two live regions with different urgency. Errors interrupt; route and track
+      changes are announced only when the user is idle. Sync progress deliberately
+      uses neither: announcing a thousand filenames would be hostile, so it exposes
+      a progressbar that assistive tech can poll instead.
+    -->
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="alerts" class="sr-only" role="alert"></div>
+
+    <header class="topbar" id="topbar" hidden>
+        <span class="topbar__brand">JUKEBOX</span>
+
+        <nav class="topbar__nav" aria-label="Views">
+            <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
+            <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
+        </nav>
+
+        <span class="topbar__spacer"></span>
+
+        <span class="topbar__status" id="syncChip" hidden></span>
+
+        <button class="btn btn--sm" id="syncButton" type="button">SYNC</button>
+        <button class="btn btn--sm" id="signOutButton" type="button">SIGN OUT</button>
+    </header>
+
+    <!-- tabindex allows the router to move focus here after a view change, so a
+         keyboard user is not left on a nav link that no longer describes the page. -->
+    <main id="view" tabindex="-1"></main>
+
+    <!--
+      The transport lives outside #view and is never re-rendered by the router. That is
+      what makes playback survive navigation, which the previous two-page,
+      full-reload design could not do at all.
+    -->
+    <div class="transport" id="transport" role="region" aria-label="Now playing and playback controls" hidden>
+        <div class="transport__art" id="nowArt" aria-hidden="true">♪</div>
+
+        <div class="transport__meta">
+            <span class="transport__title" id="nowTitle">SELECT TRACK TO BEGIN</span>
+            <span class="transport__sub" id="nowSub"></span>
         </div>
 
-        <h1>JUKEBOX SYSTEM</h1>
-        <p class="tagline">GOOGLE DRIVE AUDIO PLAYBACK INTERFACE v3.0</p>
-
-        <div class="buttons">
-            <a href="/player" class="btn btn-primary">INITIATE PLAYER</a>
-            <a href="/scalar/v1" class="btn">API CONSOLE</a>
+        <div class="transport__controls">
+            <button class="icon-btn" id="prevButton" type="button" aria-label="Previous track">
+                <span aria-hidden="true">&#9198;</span>
+            </button>
+            <button class="icon-btn" id="playButton" type="button" aria-label="Play" aria-keyshortcuts="Space">
+                <span aria-hidden="true" id="playGlyph">&#9654;</span>
+            </button>
+            <button class="icon-btn" id="nextButton" type="button" aria-label="Next track">
+                <span aria-hidden="true">&#9197;</span>
+            </button>
+            <button class="btn btn--sm" id="shuffleButton" type="button" aria-pressed="false">SHUFFLE</button>
+            <button class="btn btn--sm" id="repeatButton" type="button"
+                    data-state="off" aria-label="Repeat: off. Activate for repeat all.">REPEAT</button>
         </div>
-                
+
+        <div class="transport__seek">
+            <label class="sr-only" for="seek">Seek</label>
+            <input class="range" id="seek" type="range" min="0" max="0" step="1" value="0"
+                   aria-valuetext="0 seconds of 0 seconds">
+            <span class="transport__time"><time id="position">0:00</time> / <time id="duration">0:00</time></span>
+        </div>
     </div>
+
+    <!--
+      One audio element for the lifetime of the page. Re-creating it per view is what
+      makes playback stop on navigation, and on iOS a freshly created element may
+      silently refuse to play because it has no user-gesture history.
+      No `controls`: the transport above is the control surface.
+    -->
+    <audio id="audio" preload="metadata"></audio>
+
+    <!--
+      Rendered by cloning templates rather than assembling innerHTML. The previous
+      player built rows by string concatenation, which is why escaping had to be
+      remembered at every call site and was missed in the error path.
+    -->
+    <template id="tpl-track-row">
+        <li class="list-row" role="option">
+            <span class="list-row__num"></span>
+            <span class="list-row__title"></span>
+            <span class="list-row__artist"></span>
+            <span class="list-row__album"></span>
+            <time class="list-row__duration"></time>
+        </li>
+    </template>
+
+    <script type="module" src="/js/main.js"></script>
 </body>
 </html>
