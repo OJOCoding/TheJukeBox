@@ -1,144 +1,121 @@
-﻿/* Reset and Base Styles */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+@import url('tokens.css');
+@import url('base.css');
+
+/* ===========================================================================
+   LANDING PAGE
+   ---------------------------------------------------------------------------
+   The reset, document defaults, blueprint grid, selection colour and the
+   pressable-control component (.btn surface, press interaction, focus ring)
+   all live in base.css. Only what is specific to this page is below.
+   =========================================================================== */
 
 body {
-    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-    background: #ffffff;
-    min-height: 100vh;
-    color: #000000;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    line-height: 1.4;
+    /* Was `min-height: 100vh` with `align-items: center; justify-content:
+       center; overflow: hidden`. On a short viewport that combination clipped
+       the container with no way to scroll to the rest of it. Auto margins on
+       the flex child (see .container) centre it identically but resolve to
+       zero once free space runs out, so the container overflows in both
+       directions and stays reachable. dvh tracks the dynamic viewport so
+       mobile browser chrome does not steal the same height twice. */
+    min-height: 100dvh;
 }
 
-/* Main Container - Blueprint Style */
+/* --- Container ------------------------------------------------------------ */
 .container {
+    /* Centring, and the overflow escape hatch. See the note on body above. */
+    margin: auto;
     text-align: center;
-    background: #ffffff;
-    border: 2px solid #000000;
-    border-radius: 0;
-    padding: 60px 40px;
-    max-width: 700px;
+    background: var(--color-surface);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+    padding: var(--space-60) var(--space-40);
+    max-width: var(--width-landing);
     width: 90%;
     position: relative;
-    box-shadow: 8px 8px 0px #000000;
+    box-shadow: var(--shadow-raised);
 }
 
-    /* Blueprint Grid Background */
-    .container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-        background-size: 20px 20px;
-        pointer-events: none;
-        z-index: -1;
-    }
-
-/* Header */
+/* --- Header --------------------------------------------------------------- */
 h1 {
-    font-size: 3.5rem;
-    font-weight: 700;
-    color: #000000;
-    margin-bottom: 20px;
+    font-size: var(--text-6xl);
+    font-weight: var(--weight-bold);
+    color: var(--color-ink);
+    margin-bottom: var(--space-20);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 3px solid #000000;
-    padding-bottom: 15px;
+    letter-spacing: var(--tracking-wider);
+    border-bottom: var(--border-heavy) solid var(--color-ink);
+    padding-bottom: var(--space-15);
     display: inline-block;
 }
 
-/* Tagline */
 .tagline {
-    font-size: 1.2rem;
-    color: #333333;
-    margin-bottom: 40px;
-    font-weight: 400;
-    border: 1px solid #000000;
-    padding: 15px;
-    background: #f8f8f8;
+    font-size: var(--text-lg);
+    color: var(--color-ink-secondary);
+    margin-bottom: var(--space-40);
+    font-weight: var(--weight-regular);
+    border: var(--border-hairline) solid var(--color-ink);
+    padding: var(--space-15);
+    background: var(--color-recess);
 }
 
-/* Buttons - Technical Style */
+/* --- Buttons ------------------------------------------------------------- */
 .buttons {
     display: flex;
-    gap: 20px;
+    gap: var(--space-20);
     justify-content: center;
-    margin-bottom: 50px;
+    margin-bottom: var(--space-50);
     flex-wrap: wrap;
 }
 
+/* Geometry only - surface, press interaction and focus ring come from the
+   shared component in base.css. */
 .btn {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
-    background: #ffffff;
-    border: 2px solid #000000;
-    color: #000000;
-    padding: 16px 32px;
-    text-decoration: none;
-    border-radius: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: 4px 4px 0px #000000;
+    gap: var(--space-12);
+    padding: var(--space-16) var(--space-32);
+    font-size: var(--text-md);
     position: relative;
 }
 
-    .btn:hover {
-        background: #000000;
-        color: #ffffff;
-        transform: translate(2px, 2px);
-        box-shadow: 2px 2px 0px #000000;
-    }
-
-    .btn:active {
-        transform: translate(4px, 4px);
-        box-shadow: 0px 0px 0px #000000;
-    }
-
-.btn-primary {
-    background: #000000;
-    color: #ffffff;
+/* This page's buttons sit on white with room around them, so the ring is
+   pushed further out than the player's tighter controls. */
+.btn:focus-visible {
+    outline-offset: var(--focus-offset-wide);
 }
 
+.btn-primary {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+    /* Deliberately after the shared .btn:hover so it overrides the inverted
+       background at equal specificity; the inverted text colour still applies. */
     .btn-primary:hover {
-        background: #333333;
+        background: var(--color-ink-secondary);
     }
 
-
-
-/* Status Indicator */
+/* --- Status indicator ---------------------------------------------------- */
 .status {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: var(--space-20);
+    right: var(--space-20);
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
+    gap: var(--space-8);
+    font-size: var(--text-xs);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    font-weight: var(--weight-semibold);
 }
 
 .status-dot {
-    width: 12px;
-    height: 12px;
-    background: #00ff00;
-    border: 1px solid #000000;
-    animation: pulse 2s infinite;
+    width: var(--status-dot-size);
+    height: var(--status-dot-size);
+    background: var(--color-signal);
+    border: var(--border-hairline) solid var(--color-ink);
+    animation: pulse var(--duration-pulse) infinite;
 }
 
 @keyframes pulse {
@@ -155,25 +132,27 @@ h1 {
     }
 }
 
-/* Responsive Design */
+/* --- Responsive ---------------------------------------------------------- */
+/* Literal 768px: @media cannot read custom properties. Mirrors
+   --breakpoint-md in tokens.css. */
 @media (max-width: 768px) {
     .container {
-        padding: 40px 25px;
+        padding: var(--space-40) var(--space-25);
     }
 
     h1 {
-        font-size: 2.5rem;
-        letter-spacing: 1px;
+        font-size: var(--text-5xl);
+        letter-spacing: var(--tracking-wide);
     }
 
     .tagline {
-        font-size: 1rem;
+        font-size: var(--text-base);
     }
 
     .buttons {
         flex-direction: column;
         align-items: center;
-        gap: 15px;
+        gap: var(--space-15);
     }
 
     .btn {
@@ -187,19 +166,6 @@ h1 {
     }
 
     .tech-specs {
-        margin-top: 30px;
+        margin-top: var(--space-30);
     }
-}
-
-
-/* Focus states for accessibility */
-.btn:focus {
-    outline: 2px dashed #000000;
-    outline-offset: 4px;
-}
-
-/* Selection style */
-::selection {
-    background: #000000;
-    color: #ffffff;
 }

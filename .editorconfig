@@ -10,8 +10,13 @@ indent_style = space
 [*.{cs,csx}]
 indent_size = 4
 
-[*.{js,mjs,css,html,json,yml,yaml}]
+[*.{js,mjs,html,json,yml,yaml}]
 indent_size = 2
+
+# The stylesheets have always been 4-space. Aligning the config to the code beats
+# reformatting 537 lines for no benefit.
+[*.css]
+indent_size = 4
 
 [*.{csproj,props,targets,config}]
 indent_size = 2
