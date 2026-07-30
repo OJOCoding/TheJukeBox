@@ -1,11 +1,15 @@
-namespace TheJukeBox.API;
+namespace TheJukeBox.Infrastructure.Metadata;
 
 /// <summary>
 /// Maps between audio file names, extensions, and MIME types.
 /// </summary>
-public static class FileExtensions
+/// <remarks>
+/// Formerly <c>TheJukeBox.API.FileExtensions</c>, whose name suggested a class of
+/// extension methods. Renamed on the move that retired the <c>API</c> folder.
+/// </remarks>
+public static class AudioFormats
 {
-    private static readonly HashSet<string> SupportedAudio = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> Supported = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mp3", ".wav", ".flac", ".ogg", ".opus", ".m4a", ".aac", ".mp4", ".wma",
     };
@@ -42,24 +46,23 @@ public static class FileExtensions
     };
 
     /// <summary>
-    /// Best-effort extension for a Drive file, preferring the file name and falling
-    /// back to the MIME type.
+    /// Best-effort extension for a Drive file, preferring the file name and falling back
+    /// to the MIME type.
     /// </summary>
     /// <remarks>
     /// Returns <see langword="null"/> when neither source identifies a known audio
-    /// format. The previous implementation defaulted to <c>".mp3"</c>, which meant an
-    /// unusually-typed FLAC was announced to the browser as <c>audio/mpeg</c> and
-    /// failed to decode. Admitting we do not know lets the caller send
-    /// <c>application/octet-stream</c> and leave the browser to sniff, which
-    /// actually works.
+    /// format. The original implementation defaulted to <c>".mp3"</c>, which announced an
+    /// unusually-typed FLAC to the browser as <c>audio/mpeg</c> and failed to decode.
+    /// Admitting we do not know lets the caller send <c>application/octet-stream</c> and
+    /// leave the browser to sniff, which actually works.
     /// </remarks>
-    public static string? Resolve(string? fileName, string? mimeType)
+    public static string? ResolveExtension(string? fileName, string? mimeType)
     {
         if (!string.IsNullOrEmpty(fileName))
         {
             var fromName = Path.GetExtension(fileName);
 
-            if (SupportedAudio.Contains(fromName))
+            if (Supported.Contains(fromName))
             {
                 return fromName.ToLowerInvariant();
             }
@@ -79,6 +82,6 @@ public static class FileExtensions
             ? mimeType
             : "application/octet-stream";
 
-    public static bool IsSupportedAudio(string? extension) =>
-        extension is not null && SupportedAudio.Contains(extension);
+    public static bool IsSupported(string? extension) =>
+        extension is not null && Supported.Contains(extension);
 }
