@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using TheJukeBox.API;
 using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Errors;
+using TheJukeBox.Infrastructure.Persistence;
+using TheJukeBox.Infrastructure.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +53,27 @@ catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 }
 
 builder.Services.AddSingleton(paths);
+
+// --------------------------------------------------------------------------
+// Persistence and key management
+// --------------------------------------------------------------------------
+
+builder.Services.AddDbContext<JukeBoxDbContext>(options =>
+    options.UseJukeBoxSqlite(paths.DatabaseFile));
+
+builder.Services.AddHostedService<DbMigratorHostedService>();
+
+// SetApplicationName is load-bearing rather than cosmetic. Data Protection derives its
+// purpose chain from the application name, so leaving it to the default (which is
+// content-root based) means moving or renaming the deployment silently produces a
+// different key and every stored refresh token becomes undecryptable.
+Directory.CreateDirectory(paths.KeysPath);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(paths.KeysPath))
+    .SetApplicationName("TheJukeBox");
+
+builder.Services.AddSingleton<ITokenProtector, DataProtectionTokenProtector>();
 
 // --------------------------------------------------------------------------
 // Services

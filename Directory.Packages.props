@@ -1,20 +1,27 @@
 <Project>
-
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup Label="Google Drive">
     <PackageVersion Include="Google.Apis.Auth" Version="1.71.0" />
     <PackageVersion Include="Google.Apis.Drive.v3" Version="1.71.0.3905" />
   </ItemGroup>
 
+  <!--
+    Kept at the same version as the dotnet-ef tool pinned in
+    .config/dotnet-tools.json. A design-time package newer than the tool (or the
+    reverse) is the usual cause of "the EF tools need to be updated" on a clean
+    clone, so the two move together.
+  -->
+  <ItemGroup Label="Persistence">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+  </ItemGroup>
   <ItemGroup Label="API surface">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
   </ItemGroup>
-
   <!--
     Transitive pin. Microsoft.AspNetCore.OpenApi 10.0.10 resolves Microsoft.OpenApi
     2.0.0, which is affected by CVE-2026-49451 (NU1903, high): a circular schema
@@ -24,15 +31,29 @@
     repo should not ship a flagged transitive dependency. Remove this pin once a
     Microsoft.AspNetCore.OpenApi release depends on a fixed version directly.
   -->
+  <!--
+    Transitive pin. Microsoft.EntityFrameworkCore.Sqlite 10.0.10 resolves
+    SQLitePCLRaw.bundle_e_sqlite3 2.1.11, which carries the native SQLite binary in
+    SQLitePCLRaw.lib.e_sqlite3 2.1.11. That is affected by CVE-2025-6965 (NU1903,
+    high, CVSS 7.2): in SQLite below 3.50.2 the number of aggregate terms can exceed
+    the available columns, corrupting memory. Unlike the OpenApi pin below, this one is
+    genuinely reachable, because the flaw is in the query engine executing our SQL.
+
+    Only lib.e_sqlite3 is bumped. It contains nothing but the native library, so
+    swapping it upgrades the engine while leaving the managed wrappers (core,
+    provider, bundle) at the versions EF Core was built and tested against. The
+    GitHub advisory claims no patched version exists; 2.1.12 is published and sits
+    outside the affected range, and a test asserts the loaded engine reports >= 3.50.2
+    rather than trusting the package version to mean what it appears to.
+  -->
   <ItemGroup Label="Security pins">
     <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
-
   <ItemGroup Label="Testing">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
-
 </Project>

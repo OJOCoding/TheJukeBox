@@ -104,6 +104,55 @@ public static class StartupValidation
     }
 
     /// <summary>
+    /// Reports an unusable database and terminates. Never returns.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="PrintAndExit"/> because the remedies are completely
+    /// different: a storage failure is almost never about OAuth credentials, and
+    /// printing the Google setup walkthrough would send the operator in the wrong
+    /// direction.
+    /// </remarks>
+    public static void PrintStorageFailureAndExit(Exception exception, string dataPath)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        const string rule = "================================================================================";
+
+        var report = new StringBuilder();
+
+        report.AppendLine();
+        report.AppendLine(rule);
+        report.AppendLine(" THE JUKEBOX -- CANNOT START: DATABASE UNAVAILABLE");
+        report.AppendLine(rule);
+        report.AppendLine();
+        report.AppendLine($" Data directory : {dataPath}");
+        report.AppendLine($" Reason         : {exception.Message}");
+        report.AppendLine();
+        report.AppendLine(" Most common causes, in order:");
+        report.AppendLine();
+        report.AppendLine("   1. Bind-mount ownership. The container runs as a non-root user, so a");
+        report.AppendLine("      host directory mounted at /data must be writable by it.");
+        report.AppendLine("      Try:  sudo chown -R 64198:64198 ./data");
+        report.AppendLine("   2. The volume is mounted read-only.");
+        report.AppendLine("   3. The disk is full.");
+        report.AppendLine("   4. A failed earlier upgrade left the schema half-applied. Restore the");
+        report.AppendLine($"      newest file from {Path.Combine(dataPath, "backups")} over");
+        report.AppendLine("      jukebox.db and retry.");
+        report.AppendLine();
+        report.AppendLine(" Set Storage:DataPath (or JUKEBOX_DATA_PATH) to move the data directory.");
+        report.AppendLine(" Set Storage:AutoMigrate=false to start without applying migrations.");
+        report.AppendLine();
+        report.AppendLine(" See docs/SELF-HOSTING.md for the full walkthrough.");
+        report.AppendLine(rule);
+        report.AppendLine();
+
+        Console.Error.Write(report.ToString());
+        Console.Error.Flush();
+
+        Environment.Exit(ConfigurationErrorExitCode);
+    }
+
+    /// <summary>
     /// True when this exception (or anything it wraps) is an options-validation
     /// failure, which is the only kind this class is equipped to explain.
     /// </summary>

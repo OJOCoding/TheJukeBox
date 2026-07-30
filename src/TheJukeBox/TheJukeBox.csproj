@@ -5,11 +5,29 @@
     <UserSecretsId>thejukebox-dev</UserSecretsId>
   </PropertyGroup>
 
+  <!--
+    Infrastructure types are internal by default so the surface this project exposes
+    stays deliberate. The test project needs to construct them directly.
+  -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>TheJukeBox.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Google.Apis.Auth" />
     <PackageReference Include="Google.Apis.Drive.v3" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Scalar.AspNetCore" />
+
+    <!--
+      Design-time only: this is what "dotnet ef migrations add" loads to build the
+      model. PrivateAssets="all" keeps it out of the published output and out of any
+      project that references this one.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>
