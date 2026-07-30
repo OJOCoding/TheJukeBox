@@ -1,4 +1,4 @@
-﻿// The play queue.
+// The play queue.
 //
 // The old model stored a second array of *indices into a mutable playlist*
 // (`shuffledPlaylist`), which is the root of the shuffle bug: any change to the library
