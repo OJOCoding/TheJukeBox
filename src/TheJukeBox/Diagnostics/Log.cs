@@ -63,8 +63,54 @@ internal static partial class Log
     public static partial void OAuthCallbackFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(
+        EventId = 1022,
+        Level = LogLevel.Warning,
+        Message = "A stored Drive refresh token could not be decrypted. The Data Protection key "
+                  + "ring under {{DataPath}}/keys has most likely been lost or replaced; affected "
+                  + "users must reconnect their Drive.")]
+    public static partial void TokenDecryptionFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
         EventId = 1030,
         Level = LogLevel.Debug,
         Message = "Drive listing returned {Count} audio file(s).")]
     public static partial void DriveListed(ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 1040,
+        Level = LogLevel.Information,
+        Message = "Database is up to date at {DatabaseFile}; no migrations pending.")]
+    public static partial void DatabaseUpToDate(ILogger logger, string databaseFile);
+
+    [LoggerMessage(
+        EventId = 1041,
+        Level = LogLevel.Information,
+        Message = "Applying {Count} pending database migration(s): {Migrations}")]
+    public static partial void ApplyingMigrations(ILogger logger, int count, string migrations);
+
+    [LoggerMessage(
+        EventId = 1042,
+        Level = LogLevel.Information,
+        Message = "Backed up the database to {BackupFile} ({Bytes} bytes) before migrating.")]
+    public static partial void DatabaseBackedUp(ILogger logger, string backupFile, long bytes);
+
+    [LoggerMessage(
+        EventId = 1043,
+        Level = LogLevel.Warning,
+        Message = "Could not back up the database before migrating. Continuing, because refusing "
+                  + "to start would be worse than starting without a backup.")]
+    public static partial void DatabaseBackupFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 1044,
+        Level = LogLevel.Warning,
+        Message = "Storage:AutoMigrate is disabled and {Count} migration(s) are pending. The "
+                  + "application will run against an out-of-date schema and is likely to fail.")]
+    public static partial void MigrationsPendingButDisabled(ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 1045,
+        Level = LogLevel.Debug,
+        Message = "Pruned {Count} old database backup(s).")]
+    public static partial void BackupsPruned(ILogger logger, int count);
 }
