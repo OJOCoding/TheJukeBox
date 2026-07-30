@@ -14,6 +14,8 @@ public sealed class JukeBoxDbContext(DbContextOptions<JukeBoxDbContext> options)
 
     public DbSet<DriveSyncState> DriveSyncStates => Set<DriveSyncState>();
 
+    public DbSet<Track> Tracks => Set<Track>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
