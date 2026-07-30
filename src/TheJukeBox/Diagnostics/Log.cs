@@ -106,6 +106,37 @@ internal static partial class Log
     public static partial void DriveListed(ILogger logger, int count);
 
     [LoggerMessage(
+        EventId = 1031,
+        Level = LogLevel.Information,
+        Message = "Enumerated {Count} audio file(s) from Drive across {Pages} page(s).")]
+    public static partial void DriveEnumerated(ILogger logger, int count, int pages);
+
+    [LoggerMessage(
+        EventId = 1032,
+        Level = LogLevel.Information,
+        Message = "Sync for {UserId} finished: {Added} added, {Updated} updated, {Removed} removed, "
+                  + "{Unchanged} unchanged.")]
+    public static partial void SyncCompleted(
+        ILogger logger,
+        Guid userId,
+        int added,
+        int updated,
+        int removed,
+        int unchanged);
+
+    [LoggerMessage(
+        EventId = 1033,
+        Level = LogLevel.Warning,
+        Message = "Sync for {UserId} failed.")]
+    public static partial void SyncFailed(ILogger logger, Guid userId, Exception exception);
+
+    [LoggerMessage(
+        EventId = 1034,
+        Level = LogLevel.Debug,
+        Message = "Sync for {UserId} was already queued or running; the request was folded into it.")]
+    public static partial void SyncAlreadyPending(ILogger logger, Guid userId);
+
+    [LoggerMessage(
         EventId = 1040,
         Level = LogLevel.Information,
         Message = "Database is up to date at {DatabaseFile}; no migrations pending.")]
