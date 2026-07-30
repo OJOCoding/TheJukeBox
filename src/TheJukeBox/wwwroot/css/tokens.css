@@ -1,0 +1,132 @@
+/* ===========================================================================
+   THE JUKEBOX - DESIGN TOKENS
+   ---------------------------------------------------------------------------
+   Single source of truth for the monochrome neo-brutalist "technical
+   blueprint" language: hard offset shadows, unrounded corners, hairline
+   blueprint grid, monospace uppercase type.
+
+   Every value below was extracted verbatim from the previous index.css /
+   player.css. Nothing was rounded, harmonised, or invented - this phase is an
+   extraction, not a redesign.
+
+   Spacing tokens are deliberately named after their pixel value. The design
+   mixes a 5px-step family (10/15/20/25/30/40/50/60) with a 4px-step family
+   (8/12/16/24/32); inventing semantic names over two overlapping scales would
+   have hidden mistakes, while value-names make every substitution verifiable
+   at a glance.
+   =========================================================================== */
+
+:root {
+    /* --- Colour ------------------------------------------------------------
+       Monochrome by design. --color-signal is the only chromatic value in the
+       entire system and belongs to the status indicator alone. */
+    --color-ink: #000000;
+    --color-surface: #ffffff;
+    --color-recess: #f8f8f8;          /* recessed panels: header, tagline, player bay */
+    --color-row-hover: #f0f0f0;       /* list row hover, scrollbar track */
+    --color-ink-secondary: #333333;   /* secondary text, primary-button hover */
+    --color-ink-tertiary: #666666;    /* metadata, labels, empty states */
+    --color-signal: #00ff00;
+    --color-grid-line: rgba(0, 0, 0, 0.03);
+
+    /* --- Type ------------------------------------------------------------- */
+    --font-mono: 'Courier New', 'Monaco', 'Menlo', monospace;
+
+    --text-xs: 0.8rem;
+    --text-sm: 0.9rem;
+    --text-base: 1rem;
+    --text-md: 1.1rem;
+    --text-lg: 1.2rem;
+    --text-xl: 1.3rem;
+    --text-2xl: 1.4rem;
+    --text-3xl: 1.5rem;
+    --text-4xl: 2rem;
+    --text-5xl: 2.5rem;
+    --text-6xl: 3.5rem;
+
+    --weight-regular: 400;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    --leading-base: 1.4;
+
+    /* Everything is uppercase; labels and controls track 1px, headings 2px. */
+    --tracking-wide: 1px;
+    --tracking-wider: 2px;
+
+    /* --- Spacing ---------------------------------------------------------- */
+    --space-8: 8px;
+    --space-10: 10px;
+    --space-12: 12px;
+    --space-15: 15px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-25: 25px;
+    --space-30: 30px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-50: 50px;
+    --space-60: 60px;
+
+    /* --- Borders ----------------------------------------------------------
+       A three-step weight hierarchy carries the structure: 3px separates major
+       sections, 2px draws containers and controls, 1px separates list rows. */
+    --border-hairline: 1px;
+    --border-medium: 2px;
+    --border-heavy: 3px;
+
+    /* Nothing in this language is rounded. The token exists so that the
+       absence of rounding stays an explicit assertion at each use site rather
+       than an unstated reliance on the UA default. */
+    --radius-none: 0;
+
+    /* --- Shadows ----------------------------------------------------------
+       Hard, unblurred, offset down-right. Never a blur radius: these read as
+       physical registration offsets, not glow. */
+    --shadow-raised: 8px 8px 0px var(--color-ink);   /* containers */
+    --shadow-control: 4px 4px 0px var(--color-ink);  /* controls at rest */
+    --shadow-pressed: 2px 2px 0px var(--color-ink);  /* control on hover */
+    --shadow-flush: 0px 0px 0px var(--color-ink);    /* control fully depressed */
+
+    /* The travel half of the press interaction; each step matches the shadow
+       it pairs with, so the element appears to sink onto the page. */
+    --press-shift-hover: 2px;
+    --press-shift-active: 4px;
+
+    /* --- Motion ----------------------------------------------------------- */
+    --duration-base: 0.2s;
+    --duration-pulse: 2s;
+    --easing-base: ease;
+    --transition-base: all var(--duration-base) var(--easing-base);
+
+    /* --- Focus ------------------------------------------------------------
+       The dashed outline is the same drafting motif as the rest of the
+       system, at the container border weight. */
+    --focus-ring: var(--border-medium) dashed var(--color-ink);
+    --focus-offset: 2px;
+    --focus-offset-wide: 4px;
+
+    /* --- Blueprint grid --------------------------------------------------- */
+    --grid-size: 20px;
+    --grid-line-width: 1px;
+
+    /* --- Layout ----------------------------------------------------------- */
+    --width-landing: 700px;
+    --width-player: 1200px;
+    --stats-column-min: 200px;
+    --playlist-max-height: 500px;
+    --scrollbar-width: 8px;
+    --album-art-size: 100px;
+    --audio-control-height: 50px;
+    --close-btn-size: 40px;
+    --status-dot-size: 12px;
+    --corner-mark-size: 20px;
+    /* Breakpoint recorded for reference only: @media cannot read custom
+       properties, so the 768px in each stylesheet stays a literal. */
+    --breakpoint-md: 768px;
+
+    /* --- Layers ----------------------------------------------------------- */
+    --layer-behind: -1;
+    --layer-overlay: 1000;
+}

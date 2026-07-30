@@ -1,0 +1,140 @@
+/* ===========================================================================
+   THE JUKEBOX - BASE
+   ---------------------------------------------------------------------------
+   Everything the landing page and the player page genuinely share: the reset,
+   the document defaults, the blueprint grid, the selection colour, and the one
+   pressable-control component both pages were previously defining separately.
+
+   Consumes tokens.css. Both page stylesheets import tokens.css and base.css
+   directly - base.css does not import tokens.css itself, because an import
+   chain serialises a second round trip before any rule can be applied.
+   =========================================================================== */
+
+/* --- Reset ---------------------------------------------------------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* --- Document ------------------------------------------------------------- */
+body {
+    font-family: var(--font-mono);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    line-height: var(--leading-base);
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Blueprint grid: two hairline gradients crossed at 20px.
+
+   Anchored to body::before, never to a content container. The negative layer
+   is visible because body's background propagates to the canvas, which paints
+   below every descendant including negative-z-index ones. Park this block on
+   an in-flow element that carries an opaque background of its own and the grid
+   is painted over and vanishes - which is exactly what used to happen on the
+   landing page, where the grid sat on .container::before underneath
+   .container's own `background: #ffffff`. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--color-grid-line) var(--grid-line-width), transparent var(--grid-line-width)),
+        linear-gradient(90deg, var(--color-grid-line) var(--grid-line-width), transparent var(--grid-line-width));
+    background-size: var(--grid-size) var(--grid-size);
+    pointer-events: none;
+    z-index: var(--layer-behind);
+}
+
+/* --- Selection ------------------------------------------------------------ */
+::selection {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* --- Pressable control ---------------------------------------------------
+   .btn (landing) and .control-btn (player) were near-identical rules under
+   different names in different files, free to drift apart page by page. They
+   now share one definition. .close-btn, which restated the same press
+   interaction verbatim a third time, joins them.
+
+   The three class names are kept as aliases so no markup has to change; only
+   the per-page geometry (padding, font-size, layout) is set by the page
+   stylesheets below their imports. */
+.btn,
+.control-btn,
+.close-btn {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: var(--border-medium) solid var(--color-ink);
+    border-radius: var(--radius-none);
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition-base);
+    box-shadow: var(--shadow-control);
+}
+
+/* The press interaction, defined exactly once. The element travels down-right
+   by the amount its shadow shrinks, so the offset shadow reads as a physical
+   gap closing between the control and the page. */
+.btn:hover,
+.control-btn:hover,
+.close-btn:hover {
+    background: var(--color-ink);
+    color: var(--color-surface);
+    transform: translate(var(--press-shift-hover), var(--press-shift-hover));
+    box-shadow: var(--shadow-pressed);
+}
+
+.btn:active,
+.control-btn:active,
+.close-btn:active {
+    transform: translate(var(--press-shift-active), var(--press-shift-active));
+    box-shadow: var(--shadow-flush);
+}
+
+/* --- Focus --------------------------------------------------------------- */
+.btn:focus-visible,
+.control-btn:focus-visible,
+.close-btn:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-offset);
+}
+
+/* These rules used to key off :focus, which also fires on mouse press, so the
+   drafting outline flashed on every click on top of the press animation. Same
+   motif, keyboard-only trigger. */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* --- Reduced motion ------------------------------------------------------
+   The status indicator pulses indefinitely and the press interaction
+   translates on every hover; both are suppressed here.
+
+   The shadow half of the press is deliberately left alone: it is the part
+   that makes a press legible, and it involves no movement. !important is
+   required to beat the base rules above at equal specificity, and this block
+   is the only sanctioned use of it outside the vendor audio-control shims. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+    }
+
+    .btn:hover,
+    .control-btn:hover,
+    .close-btn:hover,
+    .btn:active,
+    .control-btn:active,
+    .close-btn:active {
+        transform: none !important;
+    }
+}
