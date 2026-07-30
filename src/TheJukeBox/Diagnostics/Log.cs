@@ -71,6 +71,35 @@ internal static partial class Log
     public static partial void TokenDecryptionFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(
+        EventId = 1023,
+        Level = LogLevel.Information,
+        Message = "Signed in {UserId} (Google subject {GoogleSubject}); new account: {IsNewAccount}.")]
+    public static partial void SignedIn(
+        ILogger logger,
+        Guid userId,
+        string googleSubject,
+        bool isNewAccount);
+
+    [LoggerMessage(
+        EventId = 1024,
+        Level = LogLevel.Warning,
+        Message = "Google returned no refresh token for {UserId}. Background sync cannot run until "
+                  + "the user reconnects with prompt=consent.")]
+    public static partial void NoRefreshTokenIssued(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        EventId = 1025,
+        Level = LogLevel.Warning,
+        Message = "Retired the Drive grant for {UserId}: {ErrorCode}. The user must reconnect.")]
+    public static partial void DriveGrantRetired(ILogger logger, Guid userId, string errorCode);
+
+    [LoggerMessage(
+        EventId = 1026,
+        Level = LogLevel.Information,
+        Message = "The first account on this instance ({UserId}) has been made an administrator.")]
+    public static partial void FirstUserPromoted(ILogger logger, Guid userId);
+
+    [LoggerMessage(
         EventId = 1030,
         Level = LogLevel.Debug,
         Message = "Drive listing returned {Count} audio file(s).")]
