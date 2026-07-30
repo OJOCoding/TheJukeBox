@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TheJukeBox.Domain;
 using TheJukeBox.Features.Auth;
 using TheJukeBox.Infrastructure.Persistence;

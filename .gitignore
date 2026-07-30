@@ -386,3 +386,7 @@ FodyWeavers.xsd
 # Claude Code local tooling and machine-specific launch config
 .claude/
 
+# Real deployment secrets. .env.example is the committed template.
+.env
+!.env.example
+
