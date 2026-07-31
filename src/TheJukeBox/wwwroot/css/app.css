@@ -312,6 +312,24 @@ h1 {
     list-style: none;
 }
 
+/*
+   Windowed above ~500 tracks. The container is sized to the whole library and rows are
+   absolutely positioned at index * --row-h, so the scrollbar is the right length without a
+   spacer element. A spacer is the more common technique and would be wrong here:
+   role="listbox" permits only option children, and a spacer is not an option.
+*/
+.list--virtual {
+    position: relative;
+}
+
+.list--virtual .list-row {
+    /* Exact, not minimum. Row positions are computed arithmetically, so a row that grew
+       would overlap its neighbour rather than push it down. */
+    height: var(--row-h);
+    min-height: var(--row-h);
+    box-sizing: border-box;
+}
+
 .list-row {
     display: grid;
     grid-template-columns: 3rem 1fr 14rem 14rem 5rem;
@@ -321,7 +339,10 @@ h1 {
     border-bottom: var(--border-hairline) solid var(--color-ink);
     cursor: pointer;
     position: relative;
-    min-height: 56px;
+
+    /* Shared with the virtual list's arithmetic. The two must agree exactly, so the value
+       lives in one place. */
+    min-height: var(--row-h);
 }
 
 .list-row:hover {

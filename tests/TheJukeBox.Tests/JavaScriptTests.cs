@@ -29,21 +29,32 @@ namespace TheJukeBox.Tests;
 public class JavaScriptTests(ITestOutputHelper output)
 {
     [Fact]
-    public void Frontend_queue_tests_pass()
+    public void Frontend_tests_pass()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var testFile = Path.Combine(repositoryRoot, "tests", "js", "queue.test.mjs");
+        var testDirectory = Path.Combine(repositoryRoot, "tests", "js");
 
-        Assert.True(File.Exists(testFile), $"Expected the JavaScript tests at {testFile}.");
+        // Every file is enumerated and passed explicitly rather than handing Node the
+        // directory. `node --test <dir>` resolves the path as a module on Windows and fails
+        // with MODULE_NOT_FOUND. Enumerating also means a newly added test file is picked up
+        // without editing this method, so a test cannot be written and then silently not run.
+        var testFiles = Directory
+            .GetFiles(testDirectory, "*.test.mjs", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
 
-        if (!TryRunNode($"--test \"{testFile}\"", repositoryRoot, out var exitCode, out var runnerOutput))
+        Assert.NotEmpty(testFiles);
+
+        var arguments = "--test " + string.Join(' ', testFiles.Select(path => $"\"{path}\""));
+
+        if (!TryRunNode(arguments, repositoryRoot, out var exitCode, out var runnerOutput))
         {
             // xUnit v2 has no dynamic skip, so this is reported through the test output
             // rather than silently passing. Visible in the log, and CI has Node, so the
             // tests are enforced where it matters.
             output.WriteLine(
-                "SKIPPED: Node.js is not on PATH, so the frontend queue tests did not run. "
-                + "Install Node and re-run, or run them directly: node --test tests/js/queue.test.mjs");
+                "SKIPPED: Node.js is not on PATH, so the frontend tests did not run. "
+                + "Install Node and re-run, or run them directly: node --test tests/js/*.test.mjs");
 
             return;
         }

@@ -116,6 +116,9 @@
     --width-player: 1200px;
     --stats-column-min: 200px;
     --playlist-max-height: 500px;
+    /* Track row height. Read by the virtual list's positioning arithmetic as well as by the
+       stylesheet, so the two cannot disagree. Comfortably clears the 44px WCAG 2.5.8 target. */
+    --row-h: 56px;
     --scrollbar-width: 8px;
     --album-art-size: 100px;
     --audio-control-height: 50px;
