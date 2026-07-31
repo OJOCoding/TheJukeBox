@@ -32,10 +32,24 @@ has to reconnect their Drive. Nothing about the failure points at the consent sc
 
 On the OAuth consent screen, click **Publish app**.
 
-You do **not** need to complete Google's verification review. An unverified app in
-production shows an "unverified app" warning that users click through via **Advanced → Go
-to (app name)**, and is capped at 100 users — fine for a personal or small-group instance.
-Verification only matters if you intend to serve strangers at scale.
+You do **not** need to complete Google's verification review to use this yourself or with a
+handful of people. An unverified app in production shows an "unverified app" warning that
+users click through via **Advanced → Go to (app name)**.
+
+> ### The 100-user cap is permanent — read this before testing
+>
+> An unverified app requesting a restricted scope is limited to **100 users**, and that cap
+> applies **over the lifetime of the Cloud project**. It counts every account that has ever
+> granted access, it **cannot be reset**, and creating a new OAuth client ID or redeploying
+> does not clear it.
+>
+> Practical consequences:
+>
+> - Do your throwaway testing in a **separate Cloud project** you are willing to burn.
+> - Every friend you hand this to consumes one of the 100 permanently.
+> - If you are planning a public instance, read
+>   [Hosting this for other people](#hosting-this-for-other-people) first, because the
+>   cap is not the main obstacle.
 
 ## 3. Create OAuth credentials
 
@@ -132,6 +146,55 @@ currently sign in and get their own library, so if your instance is on the publi
 and you do not want that, keep it behind your proxy's own authentication for now.
 
 ---
+
+## Hosting this for other people
+
+A common misreading first: **your users do not supply Google credentials.** You supply one
+OAuth client for the whole deployment (the `.env` values). Each visitor clicks "Sign in with
+Google", authorises with their *own* Google account, and TheJukeBox indexes *their* Drive.
+Refresh tokens are stored per user and encrypted, and one user's session cannot reach another
+user's library. Nothing about that needs changing to host for others.
+
+What does constrain you is Google's policy on the `drive.readonly` scope, which is
+**restricted**:
+
+| Scale | What Google requires |
+|---|---|
+| Just you, or a few people | Nothing. Publish unverified, users click through the warning. Counts against the permanent 100-user cap. |
+| A public instance | **Verification, plus a third-party security assessment (CASA)** — because this app reads Drive data *through a server*. The assessment must be repeated **every 12 months**. |
+
+That second row is the real obstacle, not the user cap. CASA is a paid annual engagement with
+an approved assessor, and it applies specifically because the server touches the data — an app
+that only ever read Drive from the browser would not need it.
+
+### If you want a genuinely public instance
+
+Switch from `drive.readonly` to **`drive.file`**, which is *not* a restricted scope and needs
+neither verification-for-scale nor CASA. The trade-off is real: `drive.file` only grants access
+to files the user explicitly picks, so you add the Google Picker and users choose which folders
+to expose, instead of the app discovering their whole library.
+
+That is a genuine product decision, not a workaround. "Pick the folders you want to stream"
+is arguably better behaviour than "this app can read every file in your Drive", and it is what
+makes public hosting legally and practically possible. The scope lives in one place
+(`DriveClientFactory.Scopes`), but the Picker flow and per-file grant tracking are real work
+and are not built.
+
+### Before you expose an instance
+
+**There is no registration allowlist.** Any Google account that reaches your sign-in page can
+create an account and index their Drive. The first account to sign in becomes administrator;
+everyone after that is an ordinary user. Until an allowlist exists, either keep the instance
+behind your reverse proxy's own authentication, or accept that strangers can consume your
+100-user cap.
+
+You are also, in practice, operating a service that reads other people's private files. Their
+audio flows through your server, and your database holds tokens that can read their Drive.
+That deserves a privacy note to your users and a plan for what happens to that data if you
+shut the instance down.
+
+Sources: [Restricted scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification),
+[Unverified apps](https://support.google.com/cloud/answer/7454865).
 
 ## Backups
 
