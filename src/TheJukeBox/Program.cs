@@ -92,6 +92,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IDriveTokenStore, DriveTokenStore>();
 builder.Services.AddScoped<IDriveClientFactory, DriveClientFactory>();
 builder.Services.AddScoped<IDriveLibraryClient, DriveLibraryClient>();
+builder.Services.AddScoped<IDriveChangesClient, DriveChangesClient>();
 
 // The library cache and its background refresh. SyncDispatcher is a singleton because the
 // pending-set and the channel must be shared across requests; the worker resolves the
@@ -105,6 +106,16 @@ builder.Services.AddScoped<MetadataEnricher>();
 builder.Services.AddSingleton<SyncDispatcher>();
 builder.Services.AddSingleton<ISyncDispatcher>(provider => provider.GetRequiredService<SyncDispatcher>());
 builder.Services.AddHostedService<SyncWorker>();
+
+// Periodic refresh. Affordable at a 15 minute interval only because a refresh is an
+// incremental change-feed read, which is one request when nothing has happened; the same
+// interval against a full listing would be indefensible.
+builder.Services.AddOptions<SyncOptions>()
+    .BindConfiguration(SyncOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHostedService<SyncScheduler>();
 
 // Named client for the Drive media endpoint. Registered so the handler and its
 // connection pool are shared; a new HttpClient per stream would exhaust sockets.

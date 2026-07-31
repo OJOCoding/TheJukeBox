@@ -137,6 +137,43 @@ internal static partial class Log
     public static partial void SyncAlreadyPending(ILogger logger, Guid userId);
 
     [LoggerMessage(
+        EventId = 1035,
+        Level = LogLevel.Information,
+        Message = "Incremental sync for {UserId}: {Count} change(s) over {Pages} page(s).")]
+    public static partial void ChangesApplied(ILogger logger, Guid userId, int count, int pages);
+
+    [LoggerMessage(
+        EventId = 1036,
+        Level = LogLevel.Debug,
+        Message = "Fetched {Count} change(s) for {UserId}; final page: {IsFinalPage}.")]
+    public static partial void ChangesFetched(ILogger logger, Guid userId, int count, bool isFinalPage);
+
+    [LoggerMessage(
+        EventId = 1037,
+        Level = LogLevel.Warning,
+        Message = "Drive rejected the stored change token for {UserId}. Falling back to a full "
+                  + "listing and starting a fresh token; without this, automatic sync would stop "
+                  + "permanently with no visible cause.")]
+    public static partial void ChangeTokenExpired(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        EventId = 1038,
+        Level = LogLevel.Debug,
+        Message = "Scheduled sync for {Count} user(s) due for a refresh.")]
+    public static partial void ScheduledSyncQueued(ILogger logger, int count);
+
+    [LoggerMessage(
+        EventId = 1039,
+        Level = LogLevel.Debug,
+        Message = "Skipping {UserId}: {Failures} consecutive failure(s), backing off for "
+                  + "another {BackoffMinutes} minute(s).")]
+    public static partial void SyncBackingOff(
+        ILogger logger,
+        Guid userId,
+        int failures,
+        double backoffMinutes);
+
+    [LoggerMessage(
         EventId = 1050,
         Level = LogLevel.Information,
         Message = "Metadata pass starting for {UserId}: {Candidates} track(s) need tags read.")]
