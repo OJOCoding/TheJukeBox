@@ -51,6 +51,16 @@ internal static partial class Log
         string driveRedirectUri);
 
     [LoggerMessage(
+        EventId = 1012,
+        Level = LogLevel.Warning,
+        Message = "The configured Google OAuth client id does not look like a real one, so "
+                  + "sign-in will fail with Google's \"invalid_client\" error. Set "
+                  + "Authentication:Google:ClientId and ClientSecret from a Web application "
+                  + "OAuth client at https://console.cloud.google.com/apis/credentials, then "
+                  + "restart. See docs/SELF-HOSTING.md.")]
+    public static partial void GoogleCredentialsLookLikePlaceholders(ILogger logger);
+
+    [LoggerMessage(
         EventId = 1020,
         Level = LogLevel.Warning,
         Message = "Failed to load the stored Drive token; treating the caller as unauthenticated.")]

@@ -49,6 +49,31 @@ export function renderWelcome(outlet, { store, onSync }) {
     return () => controller.abort();
 
     function actions() {
+        // Checked before anything else. Offering a sign-in button that cannot work sends the
+        // user to Google's "Error 401: invalid_client" page, which does not say which end is
+        // at fault and offers no way back. The app knows, so the app should say.
+        if (session?.configured === false) {
+            return [
+                el('p', {
+                    class: 'tagline',
+                    text: 'NOT CONFIGURED: THIS INSTANCE HAS NO VALID GOOGLE OAUTH CLIENT.',
+                }),
+                el('p', {
+                    class: 'view-header__count',
+                    text: 'Set Authentication:Google:ClientId and ClientSecret from a Web '
+                        + 'application OAuth client in Google Cloud Console, then restart. '
+                        + 'Signing in cannot work until then.',
+                }),
+                el('a', {
+                    class: 'btn',
+                    href: 'https://console.cloud.google.com/apis/credentials',
+                    target: '_blank',
+                    rel: 'noreferrer noopener',
+                    text: 'OPEN CLOUD CONSOLE',
+                }),
+            ];
+        }
+
         if (!authenticated) {
             // A real link, not a fetch. OAuth needs a top-level navigation, and Google
             // refuses to render its consent screen inside an iframe.
