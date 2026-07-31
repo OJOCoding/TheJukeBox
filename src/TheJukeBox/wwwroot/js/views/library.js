@@ -12,6 +12,10 @@
 
 import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss } from '../core/ui.js';
 import { api, ApiError } from '../core/api.js';
+import { VIRTUALISE_ABOVE, createVirtualList } from '../ui/virtual-list.js';
+
+/** Must match --row-h in app.css: windowed rows are positioned arithmetically. */
+const ROW_HEIGHT = 56;
 
 export function renderLibrary(outlet, { store, player, onSync }) {
     const controller = new AbortController();
@@ -54,58 +58,94 @@ export function renderLibrary(outlet, { store, player, onSync }) {
     let searchTimer = null;
     let typeAhead = { text: '', at: 0 };
 
+    /** Set only above the threshold; null means every row is in the DOM. */
+    let virtual = null;
+
+    // The shell's single scroll region, which is what actually scrolls. The list does not
+    // scroll itself: B2 deliberately avoided a nested scroll area.
+    const scrollParent = outlet;
+
     function rowId(index) {
         return `track-${index}`;
     }
 
+    /** Builds one row. Called for every track when small, per visible index when windowed. */
+    function buildRow(index) {
+        const track = tracks[index];
+        const row = fromTemplate('tpl-track-row');
+
+        row.id = rowId(index);
+        row.dataset.trackId = track.id;
+
+        // The index is carried on the element rather than inferred from its position among
+        // siblings. Under virtualisation the DOM holds only a window, so sibling position and
+        // track index are unrelated, and reading one for the other plays the wrong song.
+        row.dataset.index = String(index);
+
+        row.setAttribute('aria-setsize', String(tracks.length));
+        row.setAttribute('aria-posinset', String(index + 1));
+
+        row.querySelector('.list-row__num').textContent = String(index + 1);
+        row.querySelector('.list-row__title').textContent = track.title;
+        row.querySelector('.list-row__artist').textContent = track.artist ?? '';
+        row.querySelector('.list-row__album').textContent = track.album ?? '';
+
+        const duration = row.querySelector('.list-row__duration');
+        duration.textContent = mmss(track.durationSeconds);
+
+        // Duration, not file size. The old player put escapeHtml(track.size) into an element
+        // literally classed .track-duration, so the design's mm:ss slot displayed bytes.
+        const iso = isoDuration(track.durationSeconds);
+        if (iso) duration.setAttribute('datetime', iso);
+
+        return row;
+    }
+
     function render() {
         clear(list);
+
+        virtual?.destroy();
+        virtual = null;
 
         if (tracks.length === 0) {
             body.replaceChildren(el('p', { class: 'notice', text: 'NO TRACKS MATCH.' }));
             return;
         }
 
-        const fragment = document.createDocumentFragment();
-
-        tracks.forEach((track, index) => {
-            const row = fromTemplate('tpl-track-row');
-
-            row.id = rowId(index);
-            row.dataset.trackId = track.id;
-            row.setAttribute('aria-setsize', String(tracks.length));
-            row.setAttribute('aria-posinset', String(index + 1));
-
-            row.querySelector('.list-row__num').textContent = String(index + 1);
-            row.querySelector('.list-row__title').textContent = track.title;
-            row.querySelector('.list-row__artist').textContent = track.artist ?? '';
-            row.querySelector('.list-row__album').textContent = track.album ?? '';
-
-            const duration = row.querySelector('.list-row__duration');
-            duration.textContent = mmss(track.durationSeconds);
-
-            // Duration, not file size. The old player put escapeHtml(track.size) into an
-            // element literally classed .track-duration, so the design's mm:ss slot
-            // displayed bytes. B1 fills durationSeconds from embedded tags; until then
-            // this correctly reads "--:--" rather than lying.
-            const iso = isoDuration(track.durationSeconds);
-            if (iso) duration.setAttribute('datetime', iso);
-
-            fragment.append(row);
-        });
-
         body.replaceChildren(list);
-        list.append(fragment);
+
+        if (tracks.length > VIRTUALISE_ABOVE) {
+            // Windowed. The row height must match the stylesheet's --row-h exactly, since
+            // rows are positioned arithmetically rather than by flow.
+            virtual = createVirtualList({
+                container: list,
+                scrollParent,
+                rowHeight: ROW_HEIGHT,
+                renderRow: buildRow,
+            });
+
+            virtual.setTotal(tracks.length);
+        } else {
+            // Below the threshold every row is rendered. Virtualisation is the riskier path
+            // for assistive technology, and most libraries never need it.
+            const fragment = document.createDocumentFragment();
+
+            for (let index = 0; index < tracks.length; index++) {
+                fragment.append(buildRow(index));
+            }
+
+            list.append(fragment);
+        }
 
         paintStates();
     }
 
-    /** Applies selection and now-playing state without re-rendering rows. */
+    /** Applies selection and now-playing state without rebuilding rows. */
     function paintStates() {
         const playingId = store.state.currentTrackId;
 
         for (const row of list.children) {
-            const isSelected = row.id === rowId(selected);
+            const isSelected = Number(row.dataset.index) === selected;
 
             // aria-selected is the list cursor; aria-current is what is playing. They are
             // different states and the stylesheet keys off both, so the visible state and
@@ -118,16 +158,30 @@ export function renderLibrary(outlet, { store, player, onSync }) {
             if (player.isUnplayable(row.dataset.trackId)) row.dataset.unplayable = '1';
         }
 
-        if (selected >= 0) list.setAttribute('aria-activedescendant', rowId(selected));
-        else list.removeAttribute('aria-activedescendant');
+        // Only set when the row exists. aria-activedescendant pointing at an id that is not
+        // in the DOM is worse than not setting it: assistive technology reports nothing and
+        // the list appears to have no cursor at all.
+        if (selected >= 0 && list.querySelector(`#${rowId(selected)}`)) {
+            list.setAttribute('aria-activedescendant', rowId(selected));
+        } else {
+            list.removeAttribute('aria-activedescendant');
+        }
     }
 
     function focusIndex(next) {
         if (tracks.length === 0) return;
 
         selected = Math.min(Math.max(next, 0), tracks.length - 1);
-        paintStates();
 
+        if (virtual) {
+            // Renders the target row before paintStates runs, so activedescendant has
+            // something to point at.
+            virtual.reveal(selected);
+            paintStates();
+            return;
+        }
+
+        paintStates();
         list.children[selected]?.scrollIntoView({ block: 'nearest' });
     }
 
@@ -144,13 +198,18 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         const row = event.target.closest('.list-row');
         if (!row) return;
 
-        const index = [...list.children].indexOf(row);
+        // From the element, not its sibling position: under virtualisation those differ.
+        const index = Number(row.dataset.index);
+        if (!Number.isInteger(index)) return;
+
         focusIndex(index);
         activate(index);
     });
 
     list.addEventListener('keydown', (event) => {
-        const rows = Math.max(1, Math.floor(list.clientHeight / 56) - 1);
+        // Page size from the scroll viewport, not the list. The list element is now as tall
+        // as the whole library when windowed, so measuring it would page by thousands.
+        const rows = Math.max(1, Math.floor(scrollParent.clientHeight / ROW_HEIGHT) - 1);
         let next = null;
 
         switch (event.key) {
@@ -242,5 +301,10 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         controller.abort();
         clearTimeout(searchTimer);
         unsubscribe();
+
+        // Detaches the scroll and resize listeners. Without this, navigating away leaves a
+        // renderer observing the shell's scroll region for a list that no longer exists.
+        virtual?.destroy();
+        virtual = null;
     };
 }
