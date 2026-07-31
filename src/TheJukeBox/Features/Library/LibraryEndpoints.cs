@@ -29,7 +29,11 @@ public static class LibraryEndpoints
 
         group.MapGet("/tracks", GetTracksAsync);
         group.MapGet("/sync/status", GetSyncStatusAsync);
-        group.MapPost("/sync", RequestSyncAsync);
+        group.MapPost("/sync", (ICurrentUser user, ISyncDispatcher queue) => RequestSync(user, queue, forceFull: false));
+
+        // The escape hatch. No incremental feed is trusted absolutely, so there is always a
+        // way to discard the change token and relist from scratch.
+        group.MapPost("/sync/full", (ICurrentUser user, ISyncDispatcher queue) => RequestSync(user, queue, forceFull: true));
     }
 
     private static async Task<IResult> GetTracksAsync(
@@ -146,9 +150,9 @@ public static class LibraryEndpoints
     /// <summary>
     /// Asks for a sync. Idempotent: repeating it while one is pending is not an error.
     /// </summary>
-    private static IResult RequestSyncAsync(ICurrentUser currentUser, ISyncDispatcher queue)
+    private static IResult RequestSync(ICurrentUser currentUser, ISyncDispatcher queue, bool forceFull)
     {
-        var queued = queue.TryEnqueue(currentUser.RequireId());
+        var queued = queue.TryEnqueue(currentUser.RequireId(), forceFull);
 
         // 202 either way. The caller's intent -- "make sure my library is fresh" -- is
         // satisfied by an already-running sync just as well as by a new one, so

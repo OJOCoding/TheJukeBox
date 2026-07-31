@@ -10,8 +10,13 @@ public interface ISyncDispatcher
     /// <summary>
     /// Queues a sync, or folds the request into one already pending.
     /// </summary>
+    /// <param name="forceFull">
+    /// Discard the change token and relist everything. Folding a full request into a pending
+    /// incremental one still upgrades it, so asking for a rescan is never silently downgraded
+    /// to a change-feed read.
+    /// </param>
     /// <returns>True if this call queued new work.</returns>
-    bool TryEnqueue(Guid userId);
+    bool TryEnqueue(Guid userId, bool forceFull = false);
 }
 
 /// <summary>
@@ -36,17 +41,25 @@ internal sealed class SyncDispatcher(ILogger<SyncDispatcher> logger) : ISyncDisp
         });
 
     /// <summary>
-    /// Users with work queued or running. Prevents a user hammering the sync button from
-    /// filling the channel with copies of the same job.
+    /// Users with work queued or running, and whether a full relist was asked for. Prevents a
+    /// user hammering the sync button from filling the channel with copies of the same job.
     /// </summary>
-    private readonly ConcurrentDictionary<Guid, byte> _pending = new();
+    private readonly ConcurrentDictionary<Guid, bool> _pending = new();
 
     public ChannelReader<Guid> Reader => _channel.Reader;
 
-    public bool TryEnqueue(Guid userId)
+    public bool TryEnqueue(Guid userId, bool forceFull = false)
     {
-        if (!_pending.TryAdd(userId, 0))
+        if (!_pending.TryAdd(userId, forceFull))
         {
+            // Already pending. Upgrade rather than discard: a user who presses "rescan" while
+            // a routine refresh is queued means it, and returning false here would otherwise
+            // silently give them the change-feed read they were trying to bypass.
+            if (forceFull)
+            {
+                _pending[userId] = true;
+            }
+
             Log.SyncAlreadyPending(logger, userId);
             return false;
         }
@@ -60,6 +73,15 @@ internal sealed class SyncDispatcher(ILogger<SyncDispatcher> logger) : ISyncDisp
 
         return false;
     }
+
+    /// <summary>
+    /// Whether the pending run for this user should relist everything.
+    /// </summary>
+    /// <remarks>
+    /// Read at pickup rather than carried in the channel payload, so an upgrade that arrives
+    /// after the job was queued is still honoured.
+    /// </remarks>
+    public bool IsForceFull(Guid userId) => _pending.TryGetValue(userId, out var forceFull) && forceFull;
 
     /// <summary>Called by the worker once a user's run has finished.</summary>
     public void Release(Guid userId) => _pending.TryRemove(userId, out _);
@@ -92,9 +114,13 @@ internal sealed class SyncWorker(
 
                 var synchroniser = scope.ServiceProvider.GetRequiredService<LibrarySynchroniser>();
 
-                // Pass one: enumerate Drive and reconcile rows, with metadata derived from
-                // file names. Fast, and it leaves the library browsable and playable.
-                await synchroniser.SynchroniseAsync(userId, stoppingToken);
+                // Read at pickup, so a rescan requested after this job was queued still wins.
+                var forceFull = queue.IsForceFull(userId);
+
+                // Pass one: reconcile rows against Drive, with metadata derived from file
+                // names. Incremental unless a full relist was asked for. Fast either way, and
+                // it leaves the library browsable and playable.
+                await synchroniser.SynchroniseAsync(userId, forceFull, stoppingToken);
 
                 // Pass two: read embedded tags. Separate on purpose. Reading tags requires
                 // fetching bytes from inside every file, so folding it into pass one would

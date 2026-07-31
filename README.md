@@ -18,9 +18,11 @@ deliberately monochrome "technical blueprint" style.
   Your Drive refresh token is encrypted at rest and never leaves the server.
 - **Read-only access.** TheJukeBox requests `drive.readonly` and nothing more. It cannot
   create, modify, or delete anything in your Drive.
-- **Your library is indexed, not copied.** A background sync lists your audio files and
-  caches their metadata in a local SQLite database, so browsing and searching are instant
-  and work even when Drive is slow.
+- **Your library is indexed, not copied.** A background sync caches your audio files'
+  metadata in a local SQLite database, so browsing and searching are instant and work even
+  when Drive is slow. After the first full listing it refreshes from Drive's change feed,
+  which is a single request when nothing has moved — that is what makes a 15-minute timer
+  affordable rather than abusive.
 - **Metadata comes from your files.** Embedded ID3/Vorbis/MP4 tags supply artist, album,
   track number, duration, and cover art. Files without tags fall back to parsing the file
   name and folder. Tags are read using HTTP range requests — only the few hundred
@@ -105,6 +107,8 @@ Every setting can be supplied as a configuration key or as an environment variab
 | `Storage:DataPath` | `Storage__DataPath` | no | Defaults to `/data` in a container |
 | `Storage:AutoMigrate` | `Storage__AutoMigrate` | no | Default `true` |
 | `Storage:BackupsToKeep` | `Storage__BackupsToKeep` | no | Default `5`; `0` disables |
+| `Sync:AutoSyncEnabled` | `Sync__AutoSyncEnabled` | no | Default `true` |
+| `Sync:IntervalMinutes` | `Sync__IntervalMinutes` | no | Default `15` |
 
 Everything mutable lives in one directory (`/data`): the SQLite database, the Data
 Protection key ring, and pre-migration backups. **Back it up as a unit.** Losing the key
@@ -128,7 +132,8 @@ All endpoints require an authenticated session except where noted. Errors are
 | GET | `/api/tracks/{id}/stream` | `GET` and `HEAD`; honours `Range` |
 | GET | `/api/art/{sha256}/{size}` | `size`: 96 or 640 |
 | GET | `/api/sync/status` | |
-| POST | `/api/sync` | Idempotent; 202 whether or not it queued new work |
+| POST | `/api/sync` | Incremental. Idempotent; 202 whether or not it queued new work |
+| POST | `/api/sync/full` | Discards the change token and relists everything |
 
 In Development an OpenAPI document is at `/openapi/v1.json` with a browsable reference at
 `/scalar/v1`.
@@ -140,13 +145,10 @@ exist:
 
 - **Playlists and a saved queue.** Playback works and a queue exists in memory, but
   nothing is persisted between sessions.
-- **Incremental sync.** Every sync is a full listing. It works, and it is paginated
-  correctly, but it does not yet use Drive's `changes` API, and there is no timer — sync
-  runs when you ask it to.
-- **Album and artist browsing.** The data is indexed and sortable; the dedicated views
-  are not built.
-- **Offline support and PWA install.** Not started.
-- **Media Session integration.** Lock-screen and hardware media keys are not wired up.
+- **Album and artist browsing.** The data is indexed and sortable; the dedicated views are
+  not built.
+- **Offline playback.** The app shell is cached and installable, so it loads offline, but
+  audio itself is not stored for offline listening.
 - **Virtualized list rendering.** The library renders all rows, so a library of many
   thousands of tracks will feel heavy.
 - **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block
