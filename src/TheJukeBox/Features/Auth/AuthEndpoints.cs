@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using TheJukeBox.Configuration;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
 
@@ -63,11 +65,16 @@ public static class AuthEndpoints
         routes.MapGet("/api/session", async (
             HttpContext httpContext,
             JukeBoxDbContext database,
+            IOptions<GoogleOAuthOptions> googleOptions,
             CancellationToken cancellationToken) =>
         {
+            // Reported to the client so the sign-in screen can explain a misconfiguration
+            // itself, rather than sending the user to Google to be told "invalid_client".
+            var configured = !googleOptions.Value.LooksLikePlaceholder;
+
             if (!httpContext.User.TryGetUserId(out var userId))
             {
-                return Results.Ok(new SessionDto(false, null, false, false));
+                return Results.Ok(new SessionDto(false, null, false, false, configured));
             }
 
             var snapshot = await database.Users
@@ -87,14 +94,15 @@ public static class AuthEndpoints
             {
                 // The cookie outlived the account: the row was deleted while a session
                 // was live. Treat it as signed out rather than 500.
-                return Results.Ok(new SessionDto(false, null, false, false));
+                return Results.Ok(new SessionDto(false, null, false, false, configured));
             }
 
             return Results.Ok(new SessionDto(
                 Authenticated: true,
                 User: new UserDto(snapshot.DisplayName, snapshot.Email, snapshot.PictureUrl, snapshot.IsAdmin),
                 DriveConnected: snapshot.DriveConnected,
-                IsAdmin: snapshot.IsAdmin));
+                IsAdmin: snapshot.IsAdmin,
+                Configured: configured));
         }).AllowAnonymous().WithTags("Auth");
     }
 
@@ -144,6 +152,15 @@ public static class AuthEndpoints
 }
 
 /// <summary>What the shell needs before it can render.</summary>
-public sealed record SessionDto(bool Authenticated, UserDto? User, bool DriveConnected, bool IsAdmin);
+/// <param name="Configured">
+/// False when the Google OAuth credentials are obviously placeholders. Lets the sign-in
+/// screen explain the problem instead of handing the user to Google's invalid_client page.
+/// </param>
+public sealed record SessionDto(
+    bool Authenticated,
+    UserDto? User,
+    bool DriveConnected,
+    bool IsAdmin,
+    bool Configured);
 
 public sealed record UserDto(string? DisplayName, string? Email, string? PictureUrl, bool IsAdmin);

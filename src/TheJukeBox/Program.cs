@@ -232,7 +232,15 @@ static void LogStartupFacts(WebApplication application)
     // misconfiguration is thrown from this call and caught below. Leaving it to the
     // host's own StartupValidator works too, but the host logs "Hosting failed to
     // start" with a full stack trace first, burying the readable explanation.
-    _ = application.Services.GetRequiredService<IOptions<GoogleOAuthOptions>>().Value;
+    var google = application.Services.GetRequiredService<IOptions<GoogleOAuthOptions>>().Value;
+
+    // Present but obviously fake. Startup validation cannot tell, because only Google can
+    // confirm a client id is real -- so this is a warning rather than a refusal to start, and
+    // the sign-in screen repeats it where the user will actually see it.
+    if (google.LooksLikePlaceholder)
+    {
+        Log.GoogleCredentialsLookLikePlaceholders(application.Logger);
+    }
 
     var appOptions = application.Services.GetRequiredService<IOptions<AppOptions>>().Value;
     var dataPath = application.Services.GetRequiredService<JukeBoxPaths>().DataPath;

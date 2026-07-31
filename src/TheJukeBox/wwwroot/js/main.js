@@ -324,6 +324,22 @@ handleUnauthenticatedWith(() => {
 function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
+    // Not on localhost.
+    //
+    // The worker's cache name is a hardcoded version string, so during development it pins the
+    // shell indefinitely: every edit to a precached file keeps serving the old copy until the
+    // registration is manually cleared, and `fetch(..., { cache: 'reload' })` does not help
+    // because the request still goes through the worker. That cost real time three separate
+    // times while building this, each presenting as "my change did nothing".
+    //
+    // Offline behaviour is therefore verified against a deployed instance rather than locally.
+    // The alternative -- deriving the cache name from a build stamp -- is the better long-term
+    // answer, but it needs the server to template sw.js, and this is the honest version of the
+    // trade in the meantime.
+    if (['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) {
+        return;
+    }
+
     // Deferred until the page has loaded, so registration never competes with the first
     // paint. But this is called from boot(), which awaits the session request first, and by
     // then the load event has usually already fired -- so a bare addEventListener('load')
