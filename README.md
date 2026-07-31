@@ -153,6 +153,10 @@ exist:
   thousands of tracks will feel heavy.
 - **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block
   cross-site POST in the meantime.
+- **Registration control.** Any Google account that reaches the sign-in page gets its own
+  library. There is no allowlist or invite flow, so do not expose an instance publicly without
+  putting your own authentication in front of it. See
+  [Hosting this for other people](docs/SELF-HOSTING.md#hosting-this-for-other-people).
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
 
 Tag extraction has unit-tested plumbing but has not yet been exercised against a corpus of
