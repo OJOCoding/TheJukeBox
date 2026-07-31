@@ -421,7 +421,7 @@ internal sealed class LibrarySynchroniser(
     /// Builds the normalised haystack used for substring search.
     /// </summary>
     /// <remarks>
-    /// Accents are folded so "Bjork" finds "BjÃ¶rk" and "Sigur Ros" finds "Sigur RÃ³s",
+    /// Accents are folded so "Bjork" finds "Björk" and "Sigur Ros" finds "Sigur Rós",
     /// which is what people actually type. Done here, once per change, rather than per
     /// query across every row.
     /// </remarks>

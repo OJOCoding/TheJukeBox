@@ -14,6 +14,7 @@ const dom = {
     audio: document.getElementById('audio'),
     topbar: document.getElementById('topbar'),
     transport: document.getElementById('transport'),
+    nowArt: document.getElementById('nowArt'),
     nowTitle: document.getElementById('nowTitle'),
     nowSub: document.getElementById('nowSub'),
     playButton: document.getElementById('playButton'),
@@ -29,6 +30,23 @@ const dom = {
     syncChip: document.getElementById('syncChip'),
     signOutButton: document.getElementById('signOutButton'),
 };
+
+// Fail loudly, at once, if the markup and this map have drifted apart.
+//
+// Without this, a missing entry is `undefined`, the first property access on it throws deep
+// inside renderChrome, boot() rejects, the router never starts, and every visitor gets a
+// blank page with nothing in the console unless they are already watching. That is exactly
+// what a missing `nowArt` entry did: the app was completely broken and every check that did
+// not require boot() to finish still passed.
+const missingElements = Object.entries(dom)
+    .filter(([, element]) => element === null)
+    .map(([name]) => name);
+
+if (missingElements.length > 0) {
+    throw new Error(
+        `index.html is missing element(s) required by main.js: ${missingElements.join(', ')}. `
+        + 'The id in the markup and the key in the dom map must match.');
+}
 
 const store = createStore({
     session: null,
