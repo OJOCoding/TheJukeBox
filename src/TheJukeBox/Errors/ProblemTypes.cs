@@ -30,6 +30,12 @@ public static class ProblemTypes
     public const string InvalidDriveIdentifier = Prefix + "invalid-drive-identifier";
 
     /// <summary>
+    /// A reorder was submitted against a playlist whose items have since changed, so the
+    /// client's list no longer describes it. The UI should reload rather than retry.
+    /// </summary>
+    public const string PlaylistOrderStale = Prefix + "playlist:order-stale";
+
+    /// <summary>
     /// An administrator tried to disable the account they are signed in with.
     /// </summary>
     public const string SelfDisable = Prefix + "admin:self-disable";

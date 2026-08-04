@@ -127,6 +127,133 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                     b.ToTable("DriveTokens", (string)null);
                 });
 
+            modelBuilder.Entity("TheJukeBox.Domain.PlayHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PlayedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SecondsPlayed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TrackId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrackId");
+
+                    b.HasIndex("UserId", "PlayedAtUtc")
+                        .HasDatabaseName("IX_PlayHistory_UserId_PlayedAtUtc");
+
+                    b.ToTable("PlayHistory", (string)null);
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.PlaybackState", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Cursor")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("PositionSeconds")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("QueuedTrackIds")
+                        .IsRequired()
+                        .HasMaxLength(64000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Repeat")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Shuffle")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UpdatedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("PlaybackStates", (string)null);
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.Playlist", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "UpdatedAtUtc")
+                        .HasDatabaseName("IX_Playlists_UserId_UpdatedAtUtc");
+
+                    b.ToTable("Playlists", (string)null);
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.PlaylistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AddedAtUtc")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PlaylistId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TrackId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrackId")
+                        .HasDatabaseName("IX_PlaylistItems_TrackId");
+
+                    b.HasIndex("PlaylistId", "Position")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PlaylistItems_PlaylistId_Position");
+
+                    b.ToTable("PlaylistItems", (string)null);
+                });
+
             modelBuilder.Entity("TheJukeBox.Domain.Track", b =>
                 {
                     b.Property<Guid>("Id")
@@ -185,6 +312,9 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("LastPlayedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Md5Checksum")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
@@ -217,6 +347,9 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                     b.Property<string>("ParentFolderName")
                         .HasMaxLength(1024)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("PlayCount")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("RowVersion")
                         .HasColumnType("INTEGER");
@@ -257,6 +390,12 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId", "DeletedAtUtc", "Artist")
                         .HasDatabaseName("IX_Tracks_Browse_Artist");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "LastPlayedAtUtc")
+                        .HasDatabaseName("IX_Tracks_Browse_LastPlayed");
+
+                    b.HasIndex("UserId", "DeletedAtUtc", "PlayCount")
+                        .HasDatabaseName("IX_Tracks_Browse_PlayCount");
 
                     b.HasIndex("UserId", "DeletedAtUtc", "Title")
                         .HasDatabaseName("IX_Tracks_Browse_Title");
@@ -344,6 +483,66 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TheJukeBox.Domain.PlayHistory", b =>
+                {
+                    b.HasOne("TheJukeBox.Domain.Track", "Track")
+                        .WithMany()
+                        .HasForeignKey("TrackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TheJukeBox.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Track");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.PlaybackState", b =>
+                {
+                    b.HasOne("TheJukeBox.Domain.User", "User")
+                        .WithOne()
+                        .HasForeignKey("TheJukeBox.Domain.PlaybackState", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.Playlist", b =>
+                {
+                    b.HasOne("TheJukeBox.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.PlaylistItem", b =>
+                {
+                    b.HasOne("TheJukeBox.Domain.Playlist", "Playlist")
+                        .WithMany("Items")
+                        .HasForeignKey("PlaylistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TheJukeBox.Domain.Track", "Track")
+                        .WithMany()
+                        .HasForeignKey("TrackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playlist");
+
+                    b.Navigation("Track");
+                });
+
             modelBuilder.Entity("TheJukeBox.Domain.Track", b =>
                 {
                     b.HasOne("TheJukeBox.Domain.User", "User")
@@ -353,6 +552,11 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TheJukeBox.Domain.Playlist", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("TheJukeBox.Domain.User", b =>

@@ -75,6 +75,23 @@ export function createQueue() {
             return [...items];
         },
 
+        /** The position of the playing track within `ids`, or -1. */
+        get position() {
+            return positionOf();
+        },
+
+        /**
+         * The ids in the order they will actually play, from the current track onwards.
+         *
+         * Derived from `order`, not from `items`: in shuffle mode those differ, and a "coming
+         * up next" list built from insertion order would show a sequence that never happens.
+         */
+        upcoming() {
+            if (cursor < 0) return [];
+
+            return order.slice(cursor).map((position) => items[position]);
+        },
+
         /** Replaces the queue, optionally starting at a position in the supplied order. */
         replace(ids, { startAt = 0 } = {}) {
             items = [...ids];
@@ -93,6 +110,142 @@ export function createQueue() {
                 [order[0], order[cursor]] = [order[cursor], order[0]];
                 cursor = 0;
             }
+        },
+
+        /** Appends ids to the end, keeping the current track and cursor. */
+        append(ids) {
+            if (ids.length === 0) return;
+
+            const playing = positionOf();
+
+            items = [...items, ...ids];
+
+            if (!shuffle) {
+                // Linear: the new positions go on the end and the cursor is unchanged, so there
+                // is nothing to rebuild.
+                order = [...items.keys()];
+                return;
+            }
+
+            // Shuffled: the additions are interleaved into the part of the order that has not
+            // played yet. Appending them to the end instead would make "add to queue" during
+            // shuffle play them in insertion order, which is not what shuffle means.
+            const added = [...items.keys()].slice(items.length - ids.length);
+
+            for (const position of added) {
+                const at = cursor < 0
+                    ? Math.floor(Math.random() * (order.length + 1))
+                    : cursor + 1 + Math.floor(Math.random() * (order.length - cursor));
+
+                order.splice(at, 0, position);
+            }
+
+            // The cursor indexes `order`, and an insert before it would shift what is playing.
+            if (playing >= 0) cursor = order.indexOf(playing);
+        },
+
+        /**
+         * Removes one entry by its position in `ids`.
+         *
+         * Positional rather than by id, because the same track may be queued twice and
+         * "remove this one" has to be unambiguous.
+         *
+         * @returns {boolean} whether the removed entry was the one playing.
+         */
+        removeAt(position) {
+            if (position < 0 || position >= items.length) return false;
+
+            const playing = positionOf();
+            const wasPlaying = playing === position;
+
+            items.splice(position, 1);
+
+            // Rebuilt rather than patched: every position above the hole shifts by one, and
+            // adjusting `order` in place is the kind of arithmetic that goes wrong silently.
+            const keep = wasPlaying ? -1 : playing > position ? playing - 1 : playing;
+
+            order = [...items.keys()];
+
+            if (shuffle) {
+                for (let i = order.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [order[i], order[j]] = [order[j], order[i]];
+                }
+            }
+
+            if (keep >= 0) {
+                const at = order.indexOf(keep);
+
+                if (shuffle) {
+                    // Keep playing what is playing, as reorder() does.
+                    [order[0], order[at]] = [order[at], order[0]];
+                    cursor = 0;
+                } else {
+                    cursor = at;
+                }
+            } else {
+                // The playing entry went away, or nothing was playing. Sit where it was so the
+                // next `advance(1)` continues from there rather than restarting the queue.
+                cursor = Math.min(position, order.length - 1);
+            }
+
+            return wasPlaying;
+        },
+
+        clear() {
+            items = [];
+            order = [];
+            cursor = -1;
+        },
+
+        /**
+         * Everything needed to rebuild this queue later.
+         *
+         * The cursor is a position in `ids`, not an index into the shuffled order. The order is
+         * derived from a seedless shuffle, so it cannot be restored faithfully anyway -- and
+         * saving an index into something unreproducible would resume the wrong track.
+         */
+        snapshot() {
+            return {
+                ids: [...items],
+                cursor: positionOf(),
+                shuffle,
+                repeat,
+            };
+        },
+
+        /**
+         * Rebuilds from a snapshot.
+         *
+         * Mode is applied before the items, so `replace` builds the right kind of order and
+         * puts the saved track under the cursor in one step.
+         */
+        restore({ ids = [], cursor: at = -1, shuffle: wantShuffle = false, repeat: wantRepeat = 'off' } = {}) {
+            shuffle = wantShuffle === true;
+
+            // Lowercased before validating. The server stores this as a .NET enum and sends its
+            // name -- "All", not "all" -- so a case-sensitive check silently reset every restored
+            // queue to repeat-off. Nothing failed visibly: the mode was just quietly wrong.
+            const normalised = typeof wantRepeat === 'string' ? wantRepeat.toLowerCase() : '';
+
+            repeat = ['off', 'all', 'one'].includes(normalised) ? normalised : 'off';
+
+            items = [];
+            order = [];
+            cursor = -1;
+
+            if (ids.length === 0) return;
+
+            if (at < 0 || at >= ids.length) {
+                // A queue with nothing cued: restored, but not pointing anywhere. Advancing
+                // from here starts at the beginning.
+                items = [...ids];
+                reorder({ keepCurrent: false });
+                cursor = -1;
+                return;
+            }
+
+            this.replace(ids, { startAt: at });
         },
 
         /** One place sets shuffle, and it has no DOM dependency. */

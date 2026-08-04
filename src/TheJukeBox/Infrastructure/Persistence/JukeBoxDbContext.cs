@@ -26,6 +26,16 @@ public sealed class JukeBoxDbContext(DbContextOptions<JukeBoxDbContext> options)
     /// </remarks>
     public DbSet<AlbumArt> AlbumArt => Set<AlbumArt>();
 
+    public DbSet<Playlist> Playlists => Set<Playlist>();
+
+    public DbSet<PlaylistItem> PlaylistItems => Set<PlaylistItem>();
+
+    /// <summary>Resume points: one row per user, rewritten in place.</summary>
+    public DbSet<PlaybackState> PlaybackStates => Set<PlaybackState>();
+
+    /// <summary>The listening log. Append-only, pruned per user.</summary>
+    public DbSet<PlayHistory> PlayHistory => Set<PlayHistory>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);

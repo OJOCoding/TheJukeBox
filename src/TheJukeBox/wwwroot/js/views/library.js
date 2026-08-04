@@ -39,6 +39,32 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
     const body = el('div', {}, list);
 
+    // Acts on the selected row, which is the list's cursor. A per-row menu button was rejected:
+    // it would put two more tab stops on every one of potentially thousands of rows, which is
+    // exactly the problem the listbox pattern was chosen to avoid.
+    const queueButton = el('button', {
+        class: 'btn btn--sm',
+        type: 'button',
+        text: 'ADD TO QUEUE',
+        onclick: () => {
+            const track = tracks[selected];
+
+            if (!track) {
+                alertUser('Select a track first.');
+                return;
+            }
+
+            player.enqueue([track.id]);
+        },
+    });
+
+    const playlistButton = el('button', {
+        class: 'btn btn--sm',
+        type: 'button',
+        text: 'ADD TO PLAYLIST',
+        onclick: () => addSelectedToPlaylist(),
+    });
+
     outlet.append(
         el(
             'div',
@@ -48,9 +74,66 @@ export function renderLibrary(outlet, { store, player, onSync }) {
             el('form', { class: 'field', role: 'search', onsubmit: (e) => e.preventDefault() },
                 el('span', { class: 'field__prompt', 'aria-hidden': 'true', text: '>' }),
                 search),
+            el('div', { class: 'view-header__actions' }, queueButton, playlistButton),
         ),
         body,
     );
+
+    /**
+     * Adds the selected track to a playlist the user picks.
+     *
+     * The picker is a `<select>` in a native prompt-like flow rather than a custom dialog,
+     * because this app has no dialog primitive and a hand-rolled one is a focus trap, an escape
+     * handler and a scroll lock away from being correct.
+     */
+    async function addSelectedToPlaylist() {
+        const track = tracks[selected];
+
+        if (!track) {
+            alertUser('Select a track first.');
+            return;
+        }
+
+        let playlists;
+
+        try {
+            playlists = await api.playlists();
+        } catch (error) {
+            alertUser(error.message);
+            return;
+        }
+
+        if (playlists.length === 0) {
+            alertUser('Create a playlist first, on the playlists screen.');
+            return;
+        }
+
+        // Numbered, so the answer is short to type. Names are echoed as plain text in a native
+        // dialog, which cannot interpret markup.
+        const menu = playlists.map((p, index) => `${index + 1}. ${p.name}`).join('\n');
+        const answer = window.prompt(`Add "${track.title}" to which playlist?\n\n${menu}`, '1');
+
+        if (answer === null) return;
+
+        const choice = Number.parseInt(answer.trim(), 10);
+
+        if (!Number.isInteger(choice) || choice < 1 || choice > playlists.length) {
+            alertUser('That is not one of the listed playlists.');
+            return;
+        }
+
+        const target = playlists[choice - 1];
+
+        try {
+            const result = await api.addToPlaylist(target.id, [track.id]);
+
+            announce(result.added === 1
+                ? `${track.title} added to ${target.name}.`
+                : `${track.title} could not be added to ${target.name}.`);
+        } catch (error) {
+            alertUser(error.message);
+        }
+    }
 
     /** @type {Array<object>} the rows currently rendered, in display order. */
     let tracks = [];
@@ -265,7 +348,9 @@ export function renderLibrary(outlet, { store, player, onSync }) {
                 ? `${page.total} MATCHING`
                 : `${page.total} TRACK${page.total === 1 ? '' : 'S'}`;
 
-            player.setCatalogue(tracks);
+            // Merged, not replaced. This list is one page of one search, so treating it as the
+            // whole library is what used to prune the queue on every keystroke.
+            player.mergeCatalogue(tracks);
             render();
 
             if (query) announce(`${page.total} tracks.`);

@@ -104,6 +104,23 @@ public sealed class Track
 
     public DateTimeOffset AddedAtUtc { get; set; }
 
+    // --- Listening counters, maintained alongside PlayHistory in C2. ---
+
+    /// <summary>
+    /// How many times this track has been listened to.
+    /// </summary>
+    /// <remarks>
+    /// Denormalised from <see cref="PlayHistory"/> on purpose. Sorting a library by play
+    /// count from the log means grouping the whole history table on every request, and it
+    /// would answer wrongly once history is pruned. A counter is one extra write per listen
+    /// -- of which there is at most one every few minutes per user -- and makes the sort an
+    /// index seek.
+    /// </remarks>
+    public int PlayCount { get; set; }
+
+    /// <summary>When this track was last listened to, or null if never.</summary>
+    public DateTimeOffset? LastPlayedAtUtc { get; set; }
+
     /// <summary>
     /// Soft delete. Set when the file is trashed, removed, or retyped away from audio.
     /// </summary>

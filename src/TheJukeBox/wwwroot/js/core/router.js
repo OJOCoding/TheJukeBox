@@ -19,12 +19,56 @@ export function createRouter({ outlet, routes, resolve }) {
     let current = null;
     let disposeView = null;
 
+    /**
+     * Matches a pathname to a route, extracting `:name` segments.
+     *
+     * Segment-wise rather than by regex. A pattern built by interpolating into a `RegExp` has to
+     * escape whatever the path contains, and getting that wrong on a router is how a crafted URL
+     * ends up matching a route it should not.
+     *
+     * Static routes are tried first, so `/playlists/new` can exist alongside `/playlists/:id`
+     * without depending on declaration order.
+     */
+    function match(pathname) {
+        const exact = routes.find((route) => route.path === pathname);
+        if (exact) return { route: exact, params: {} };
+
+        const wanted = pathname.split('/');
+
+        for (const route of routes) {
+            if (!route.path.includes(':')) continue;
+
+            const parts = route.path.split('/');
+            if (parts.length !== wanted.length) continue;
+
+            const params = {};
+            let ok = true;
+
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i].startsWith(':')) {
+                    // An empty segment would make `/playlists/` match `/playlists/:id` with an
+                    // empty id, which then 404s from the API for no visible reason.
+                    if (wanted[i] === '') { ok = false; break; }
+                    params[parts[i].slice(1)] = decodeURIComponent(wanted[i]);
+                } else if (parts[i] !== wanted[i]) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (ok) return { route, params };
+        }
+
+        return null;
+    }
+
     function routeFor(pathname) {
-        return routes.find((route) => route.path === pathname) ?? null;
+        return match(pathname)?.route ?? null;
     }
 
     async function render(pathname, { announceChange = true } = {}) {
-        const target = resolve(pathname, routeFor(pathname));
+        const matched = match(pathname);
+        const target = resolve(pathname, matched?.route ?? null);
 
         // A guard may send the user elsewhere -- signed out, or no library yet. Replace
         // rather than push, so Back does not bounce them straight back into the view
@@ -48,7 +92,10 @@ export function createRouter({ outlet, routes, resolve }) {
         document.title = `${route.title} — JUKEBOX`;
 
         outlet.replaceChildren();
-        disposeView = (await route.render(outlet)) ?? null;
+
+        // Params come from the match for this pathname, not from the resolved route: a guard may
+        // have redirected, in which case the earlier match describes a URL we are no longer on.
+        disposeView = (await route.render(outlet, matched?.route === route ? matched.params : {})) ?? null;
 
         markActive(pathname);
 
@@ -62,7 +109,13 @@ export function createRouter({ outlet, routes, resolve }) {
 
     function markActive(pathname) {
         for (const link of document.querySelectorAll('[data-route]')) {
-            const isActive = link.dataset.route === pathname;
+            const target = link.dataset.route;
+
+            // A section's link stays current on its detail pages: /playlists/<id> should keep
+            // PLAYLISTS highlighted, or the user loses their sense of where they are. Exact match
+            // for "/", which is a prefix of everything.
+            const isActive = target === pathname
+                || (target !== '/' && pathname.startsWith(`${target}/`));
 
             // aria-current is the attribute the stylesheet keys off too, so the visible
             // highlight and the announced state cannot disagree.

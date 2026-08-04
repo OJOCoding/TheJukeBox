@@ -5,9 +5,12 @@ import { api, handleUnauthenticatedWith, isAdmitted, isReady } from './core/api.
 import { createRouter } from './core/router.js';
 import { createStore } from './core/store.js';
 import { bindMediaSession } from './player/mediasession.js';
+import { createPersistence } from './player/persistence.js';
 import { createPlayer } from './player/controller.js';
 import { renderAdmin } from './views/admin.js';
 import { renderLibrary } from './views/library.js';
+import { renderPlaylistDetail, renderPlaylists } from './views/playlists.js';
+import { renderQueue } from './views/queue.js';
 import { renderSyncProgress, renderWelcome } from './views/welcome.js';
 
 const dom = {
@@ -62,9 +65,16 @@ const store = createStore({
     hasNext: false,
     hasPrevious: false,
     trackCount: 0,
+
+    // Bumped by the player whenever the queue changes, so views can re-render on a change
+    // rather than on every position tick.
+    queueRevision: 0,
+    queueLength: 0,
 });
 
 const player = createPlayer({ audio: dom.audio, store });
+
+const persistence = createPersistence({ player, store });
 
 // ---------------------------------------------------------------------------
 // Routing
@@ -73,6 +83,16 @@ const player = createPlayer({ audio: dom.audio, store });
 const routes = [
     { path: '/', title: 'Welcome', render: (outlet) => renderWelcome(outlet, { store, onSync: requestSync }) },
     { path: '/library', title: 'Library', render: (outlet) => renderLibrary(outlet, { store, player, onSync: requestSync }) },
+    { path: '/queue', title: 'Queue', render: (outlet) => renderQueue(outlet, { store, player }) },
+    { path: '/playlists', title: 'Playlists', render: (outlet) => renderPlaylists(outlet, { store, player }) },
+
+    // Declared after /playlists so the static route is the obvious one to read first; the
+    // router prefers exact matches regardless of order.
+    {
+        path: '/playlists/:id',
+        title: 'Playlist',
+        render: (outlet, params) => renderPlaylistDetail(outlet, { store, player }, params),
+    },
     { path: '/sync', title: 'Initial sync', render: (outlet) => renderSyncProgress(outlet, { onDone: onSyncFinished }) },
     { path: '/admin', title: 'Accounts', render: (outlet) => renderAdmin(outlet, { store }) },
 ];
@@ -467,6 +487,10 @@ async function boot() {
             const status = await api.syncStatus().catch(() => null);
             if (status) store.set({ trackCount: status.trackCount });
             pollSyncChip();
+
+            // Restores the saved queue. /api/playback returns the queued tracks' metadata as
+            // well as their ids, so this needs no library page to have loaded first.
+            await persistence.restore();
         }
     } catch {
         store.set({ session: { authenticated: false, driveConnected: false, status: 'Pending' } });
