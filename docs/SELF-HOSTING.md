@@ -83,6 +83,39 @@ info: TheJukeBox[1011]
 
 Copy the client ID and client secret.
 
+### Where the credentials go depends on how you run it
+
+This is the second thing that catches people out. **`.env` is read by `docker compose`, and by
+nothing else.** Running the app directly with `dotnet run` ignores it completely.
+
+| How you run it | Where credentials come from |
+|---|---|
+| `docker compose` | `.env` at the repo root — `JUKEBOX_CLIENT_ID` and `JUKEBOX_CLIENT_SECRET` |
+| `dotnet run` | .NET user-secrets, or environment variables |
+
+For a local `dotnet run`, set them like this — from the `src/TheJukeBox` directory, and note
+that these are *your* values, not something to copy verbatim:
+
+```bash
+cd src/TheJukeBox
+dotnet user-secrets set "Authentication:Google:ClientId" "YOUR_ID.apps.googleusercontent.com"
+```
+
+```bash
+cd src/TheJukeBox
+dotnet user-secrets set "Authentication:Google:ClientSecret" "YOUR_SECRET"
+```
+
+Environment variables work for either, and override both:
+`Authentication__Google__ClientId` and `Authentication__Google__ClientSecret` (double
+underscores map to configuration nesting).
+
+If the sign-in screen says **NOT CONFIGURED**, it also shows a redacted fragment of the client
+id it actually read. If that fragment is not yours — in particular if it starts with
+`000000000000-`, the repository's placeholder — the credentials were set somewhere this process
+does not read, and the table above says where to put them instead. The same fragment appears in
+the startup log at event id 1012.
+
 ## 4. Deploy
 
 ```bash
@@ -302,6 +335,28 @@ missing MIME type may also be skipped.
 Those files have no embedded tags, so metadata was guessed from the file name and its
 folder. Tagging them (MusicBrainz Picard is the usual tool) and re-running sync will pick
 up the real values — content changes are detected, so tags are re-read.
+
+### It still says "NOT CONFIGURED" after I set my credentials
+
+The message shows a redacted fragment of the client id the app actually read. If that is not
+yours — especially if it begins `000000000000-`, which is this repository's placeholder — the
+value was set somewhere this process does not read.
+
+The usual cause is that `.env` only applies to `docker compose`. A local `dotnet run` reads
+user-secrets instead. See
+[Where the credentials go depends on how you run it](#where-the-credentials-go-depends-on-how-you-run-it).
+
+Restart after changing either: configuration is read at startup.
+
+### An album is split into several entries, or a compilation is scattered
+
+Albums are grouped by album artist, falling back to the track artist when there is no album
+artist tag. A compilation whose files carry per-track artists and no `ALBUMARTIST` will
+therefore appear once per performer. Setting `ALBUMARTIST` (to "Various Artists", say) on every
+file of the record and re-syncing collapses it into one album.
+
+The artists list groups by track artist instead, deliberately, so the people on a compilation
+still each have a page.
 
 ---
 

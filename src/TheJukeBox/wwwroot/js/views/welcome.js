@@ -58,11 +58,31 @@ export function renderWelcome(outlet, { store, onSync }) {
                     class: 'tagline',
                     text: 'NOT CONFIGURED: THIS INSTANCE HAS NO VALID GOOGLE OAUTH CLIENT.',
                 }),
+
+                // The value actually read, redacted. Without it, someone who has just filled in
+                // credentials has no way to tell that this process is reading a different source
+                // -- and since .env applies to docker compose only, that is the common case.
+                session?.clientIdHint
+                    ? el('p', {
+                        class: 'view-header__count',
+                        text: `The client id this instance read is: ${session.clientIdHint}`,
+                    })
+                    : null,
+
                 el('p', {
                     class: 'view-header__count',
-                    text: 'Set Authentication:Google:ClientId and ClientSecret from a Web '
-                        + 'application OAuth client in Google Cloud Console, then restart. '
-                        + 'Signing in cannot work until then.',
+                    text: 'If that is not the id you configured, it was set somewhere this '
+                        + 'process does not read. .env is used by docker compose only and has no '
+                        + 'effect on dotnet run; running locally, credentials come from '
+                        + 'user-secrets.',
+                }),
+                el('p', {
+                    class: 'view-header__count',
+                    text: 'Docker: copy .env.example to .env, fill in JUKEBOX_CLIENT_ID and '
+                        + 'JUKEBOX_CLIENT_SECRET, then docker compose up -d. Running locally: '
+                        + 'cd src/TheJukeBox and run dotnet user-secrets set '
+                        + '"Authentication:Google:ClientId" "<your id>", the same for '
+                        + 'ClientSecret, then restart.',
                 }),
                 el('a', {
                     class: 'btn',

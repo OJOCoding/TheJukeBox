@@ -77,9 +77,14 @@ public static class AuthEndpoints
             // itself, rather than sending the user to Google to be told "invalid_client".
             var configured = !googleOptions.Value.LooksLikePlaceholder;
 
+            // The redacted id goes with it. "Not configured" leaves someone who has just filled
+            // in credentials with no way to tell that the app is reading a different source --
+            // which, since .env only applies to docker compose, is the common case.
+            var clientIdHint = configured ? null : googleOptions.Value.ClientIdHint;
+
             if (!httpContext.User.TryGetUserId(out var userId))
             {
-                return Results.Ok(SessionDto.Anonymous(configured));
+                return Results.Ok(SessionDto.Anonymous(configured) with { ClientIdHint = clientIdHint });
             }
 
             var snapshot = await database.Users
@@ -100,7 +105,7 @@ public static class AuthEndpoints
             {
                 // The cookie outlived the account: the row was deleted while a session
                 // was live. Treat it as signed out rather than 500.
-                return Results.Ok(SessionDto.Anonymous(configured));
+                return Results.Ok(SessionDto.Anonymous(configured) with { ClientIdHint = clientIdHint });
             }
 
             return Results.Ok(new SessionDto(
@@ -175,6 +180,11 @@ public static class AuthEndpoints
 /// view would produce a screen full of errors instead of an explanation.
 /// </param>
 /// <param name="Registration">The instance's <see cref="RegistrationMode"/> as a string.</param>
+/// <param name="ClientIdHint">
+/// A redacted fragment of the configured client id, set only when <c>Configured</c> is false.
+/// Lets the sign-in screen show which value the app actually read, which is what distinguishes
+/// "I have not set credentials" from "I set them somewhere this process does not read".
+/// </param>
 public sealed record SessionDto(
     bool Authenticated,
     UserDto? User,
@@ -184,6 +194,8 @@ public sealed record SessionDto(
     string Status,
     string Registration)
 {
+    public string? ClientIdHint { get; init; }
+
     public static SessionDto Anonymous(bool configured) => new(
         Authenticated: false,
         User: null,

@@ -8,6 +8,7 @@ import { bindMediaSession } from './player/mediasession.js';
 import { createPersistence } from './player/persistence.js';
 import { createPlayer } from './player/controller.js';
 import { renderAdmin } from './views/admin.js';
+import { renderAlbum, renderAlbums, renderArtist, renderArtists } from './views/browse.js';
 import { renderLibrary } from './views/library.js';
 import { renderPlaylistDetail, renderPlaylists } from './views/playlists.js';
 import { renderQueue } from './views/queue.js';
@@ -83,6 +84,18 @@ const persistence = createPersistence({ player, store });
 const routes = [
     { path: '/', title: 'Welcome', render: (outlet) => renderWelcome(outlet, { store, onSync: requestSync }) },
     { path: '/library', title: 'Library', render: (outlet) => renderLibrary(outlet, { store, player, onSync: requestSync }) },
+    { path: '/albums', title: 'Albums', render: (outlet) => renderAlbums(outlet, { store, player }) },
+    {
+        path: '/albums/:key',
+        title: 'Album',
+        render: (outlet, params) => renderAlbum(outlet, { store, player }, params),
+    },
+    { path: '/artists', title: 'Artists', render: (outlet) => renderArtists(outlet, { store, player }) },
+    {
+        path: '/artists/:key',
+        title: 'Artist',
+        render: (outlet, params) => renderArtist(outlet, { store, player }, params),
+    },
     { path: '/queue', title: 'Queue', render: (outlet) => renderQueue(outlet, { store, player }) },
     { path: '/playlists', title: 'Playlists', render: (outlet) => renderPlaylists(outlet, { store, player }) },
 

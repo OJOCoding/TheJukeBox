@@ -56,12 +56,18 @@ internal static partial class Log
     [LoggerMessage(
         EventId = 1012,
         Level = LogLevel.Warning,
-        Message = "The configured Google OAuth client id does not look like a real one, so "
-                  + "sign-in will fail with Google's \"invalid_client\" error. Set "
-                  + "Authentication:Google:ClientId and ClientSecret from a Web application "
-                  + "OAuth client at https://console.cloud.google.com/apis/credentials, then "
-                  + "restart. See docs/SELF-HOSTING.md.")]
-    public static partial void GoogleCredentialsLookLikePlaceholders(ILogger logger);
+        Message = "The configured Google OAuth client id ({ClientIdHint}) does not look like a "
+                  + "real one, so sign-in will fail with Google's \"invalid_client\" error. Get a "
+                  + "Web application OAuth client from "
+                  + "https://console.cloud.google.com/apis/credentials, then supply it the way "
+                  + "that matches how you run this:\n"
+                  + "  Docker:      cp .env.example .env and fill in JUKEBOX_CLIENT_ID and "
+                  + "JUKEBOX_CLIENT_SECRET, then docker compose up -d\n"
+                  + "  dotnet run:  cd src/TheJukeBox && dotnet user-secrets set "
+                  + "\"Authentication:Google:ClientId\" \"<id>\" (and ClientSecret)\n"
+                  + "Note that .env is read by docker compose only. It has no effect on "
+                  + "dotnet run. See docs/SELF-HOSTING.md.")]
+    public static partial void GoogleCredentialsLookLikePlaceholders(ILogger logger, string clientIdHint);
 
     [LoggerMessage(
         EventId = 1020,

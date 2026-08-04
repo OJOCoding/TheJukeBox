@@ -56,6 +56,23 @@ public sealed class GoogleOAuthOptions
         // A real client id begins with the numeric Cloud project number, never all zeros.
         || ClientId.StartsWith("000000000000-", StringComparison.Ordinal);
 
+    /// <summary>
+    /// A redacted fragment of the client id, for diagnostics.
+    /// </summary>
+    /// <remarks>
+    /// A client id is not a secret -- it is sent to Google in a URL the user can read -- but it
+    /// is still an identifier, so only the leading project number and the tail are shown. That
+    /// is enough to answer the question this exists for: "is the app reading the value I set, or
+    /// a different one?" Someone who has set credentials in the wrong place sees a number that is
+    /// not theirs, which names the problem far faster than "not configured" does.
+    /// </remarks>
+    public string ClientIdHint =>
+        string.IsNullOrWhiteSpace(ClientId)
+            ? "empty"
+            : ClientId.Length <= 16
+                ? $"{ClientId.Length} characters, not a Google client id"
+                : $"{ClientId[..Math.Min(13, ClientId.Length)]}…{ClientId[^12..]}";
+
     private static readonly string[] PlaceholderMarkers =
     [
         "placeholder",
