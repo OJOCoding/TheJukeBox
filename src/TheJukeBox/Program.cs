@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Errors;
+using TheJukeBox.Features.Admin;
 using TheJukeBox.Features.Auth;
 using TheJukeBox.Features.Library;
 using TheJukeBox.Features.Streaming;
@@ -36,6 +36,12 @@ builder.Services.AddOptions<AppOptions>()
 
 builder.Services.AddOptions<StorageOptions>()
     .BindConfiguration(StorageOptions.SectionName)
+    .ValidateOnStart();
+
+// Who is allowed to have an account. Defaults to AdminApproval, because a public sign-in
+// page plus an open default would hand any passing Google account a library.
+builder.Services.AddOptions<AuthOptions>()
+    .BindConfiguration(AuthOptions.SectionName)
     .ValidateOnStart();
 
 // Resolved eagerly and registered, so nothing downstream is tempted to reach for
@@ -138,11 +144,10 @@ var googleOptions = builder.Configuration.GetSection(GoogleOAuthOptions.SectionN
 
 builder.Services.AddJukeBoxAuthentication(appOptions, googleOptions);
 
-// Everything is authenticated unless it opts out. A fallback policy is the safe
-// default: forgetting an attribute leaves an endpoint closed rather than open, which
-// is the opposite of the previous design where nothing was protected at all.
-builder.Services.AddAuthorizationBuilder()
-    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+// Everything requires an approved account unless it opts out. Both the default and the
+// fallback policy are set: forgetting an attribute leaves an endpoint closed rather than
+// open, which is the opposite of the previous design where nothing was protected at all.
+builder.Services.AddJukeBoxAuthorization();
 
 // One exception handler, one response shape. Replaces the per-action
 // catch-and-return-BadRequest(ex.Message) blocks that used to be in every action.
@@ -190,6 +195,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapSessionEndpoint();
+app.MapAdminEndpoints();
 app.MapLibraryEndpoints();
 app.MapArtEndpoints();
 app.MapStreamingEndpoints();

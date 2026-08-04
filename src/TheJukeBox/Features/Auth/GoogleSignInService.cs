@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using TheJukeBox.Configuration;
 using TheJukeBox.Diagnostics;
 using TheJukeBox.Domain;
 using TheJukeBox.Infrastructure.Persistence;
@@ -14,8 +16,11 @@ namespace TheJukeBox.Features.Auth;
 internal sealed class GoogleSignInService(
     JukeBoxDbContext context,
     IDriveTokenStore tokenStore,
+    IOptions<AuthOptions> authOptions,
     ILogger<GoogleSignInService> logger)
 {
+    private readonly RegistrationMode registration = authOptions.Value.Registration;
+
     /// <summary>
     /// Upserts the account, stores the refresh token, and rewrites the identity so the
     /// session carries local claims rather than Google's.
@@ -70,6 +75,11 @@ internal sealed class GoogleSignInService(
             return (user, false);
         }
 
+        // The first account to sign in owns the instance. Without this a freshly
+        // deployed instance has no administrator, and the alternative (a bootstrap
+        // password, or an env var) is more moving parts for a single-operator app.
+        var isFirstAccount = !await context.Users.AnyAsync();
+
         user = new User
         {
             GoogleSubjectId = googleSubject,
@@ -78,11 +88,8 @@ internal sealed class GoogleSignInService(
             PictureUrl = pictureUrl,
             CreatedAtUtc = now,
             LastSeenAtUtc = now,
-
-            // The first account to sign in owns the instance. Without this a freshly
-            // deployed instance has no administrator, and the alternative (a bootstrap
-            // password, or an env var) is more moving parts for a single-operator app.
-            IsAdmin = !await context.Users.AnyAsync(),
+            IsAdmin = isFirstAccount,
+            Status = RegistrationPolicy.StatusForNewAccount(isFirstAccount, registration),
         };
 
         context.Users.Add(user);
@@ -94,6 +101,8 @@ internal sealed class GoogleSignInService(
         {
             Log.FirstUserPromoted(logger, user.Id);
         }
+
+        Log.AccountRegistered(logger, user.Id, email, user.Status, registration);
 
         return (user, true);
     }
@@ -144,6 +153,7 @@ internal sealed class GoogleSignInService(
         identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
         identity.AddClaim(new Claim(JukeBoxClaims.GoogleSubject, googleSubject));
         identity.AddClaim(new Claim(JukeBoxClaims.SecurityStamp, user.SecurityStamp));
+        identity.AddClaim(new Claim(JukeBoxClaims.Status, user.Status.ToString()));
 
         if (user.IsAdmin)
         {

@@ -16,6 +16,9 @@ deliberately monochrome "technical blueprint" style.
 
 - **Sign in with Google.** Each user gets their own account and sees only their own music.
   Your Drive refresh token is encrypted at rest and never leaves the server.
+- **You control who gets in.** New accounts wait for your approval by default; you approve or
+  disable them from an **ACCOUNTS** screen. Both take effect on the next request, not whenever
+  a cookie happens to expire. Configurable to fully open or strictly single-user.
 - **Read-only access.** TheJukeBox requests `drive.readonly` and nothing more. It cannot
   create, modify, or delete anything in your Drive.
 - **Your library is indexed, not copied.** A background sync caches your audio files'
@@ -109,6 +112,7 @@ Every setting can be supplied as a configuration key or as an environment variab
 | `Storage:BackupsToKeep` | `Storage__BackupsToKeep` | no | Default `5`; `0` disables |
 | `Sync:AutoSyncEnabled` | `Sync__AutoSyncEnabled` | no | Default `true` |
 | `Sync:IntervalMinutes` | `Sync__IntervalMinutes` | no | Default `15` |
+| `Auth:Registration` | `Auth__Registration` | no | `AdminApproval` (default), `Open`, or `SingleUser` |
 
 Everything mutable lives in one directory (`/data`): the SQLite database, the Data
 Protection key ring, and pre-migration backups. **Back it up as a unit.** Losing the key
@@ -134,6 +138,14 @@ All endpoints require an authenticated session except where noted. Errors are
 | GET | `/api/sync/status` | |
 | POST | `/api/sync` | Incremental. Idempotent; 202 whether or not it queued new work |
 | POST | `/api/sync/full` | Discards the change token and relists everything |
+| GET | `/api/admin/users` | Administrator only |
+| GET | `/api/admin/registration` | Administrator only; the configured registration mode |
+| POST | `/api/admin/users/{id}/approve` | Administrator only |
+| POST | `/api/admin/users/{id}/disable` | Administrator only; rotates the account's security stamp |
+
+Endpoints marked "administrator only" require an *approved* administrator. An account awaiting
+approval is authenticated but receives `403` from everything except `/api/session`,
+`/api/auth/me` and `/api/auth/logout` — it can see why it is waiting, and sign out.
 
 In Development an OpenAPI document is at `/openapi/v1.json` with a browsable reference at
 `/scalar/v1`.
@@ -149,14 +161,11 @@ exist:
   not built.
 - **Offline playback.** The app shell is cached and installable, so it loads offline, but
   audio itself is not stored for offline listening.
-- **Virtualized list rendering.** The library renders all rows, so a library of many
-  thousands of tracks will feel heavy.
 - **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block
   cross-site POST in the meantime.
-- **Registration control.** Any Google account that reaches the sign-in page gets its own
-  library. There is no allowlist or invite flow, so do not expose an instance publicly without
-  putting your own authentication in front of it. See
-  [Hosting this for other people](docs/SELF-HOSTING.md#hosting-this-for-other-people).
+- **Invite links.** Registration is controlled by approval, not by invitation: a stranger can
+  still create a pending account and consume a row, they just cannot reach anything. An invite
+  token would stop the account being created at all.
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
 
 Tag extraction has unit-tested plumbing but has not yet been exercised against a corpus of

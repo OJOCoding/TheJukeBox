@@ -1,3 +1,6 @@
+using TheJukeBox.Configuration;
+using TheJukeBox.Domain;
+
 namespace TheJukeBox.Diagnostics;
 
 /// <summary>
@@ -108,6 +111,34 @@ internal static partial class Log
         Level = LogLevel.Information,
         Message = "The first account on this instance ({UserId}) has been made an administrator.")]
     public static partial void FirstUserPromoted(ILogger logger, Guid userId);
+
+    [LoggerMessage(
+        EventId = 1027,
+        Level = LogLevel.Information,
+        Message = "Rejected the session cookie for {UserId}: {Reason}. The user has been signed out.")]
+    public static partial void SessionRejected(ILogger logger, Guid userId, string reason);
+
+    [LoggerMessage(
+        EventId = 1028,
+        Level = LogLevel.Information,
+        Message = "New account {UserId} ({Email}) registered as {Status} under registration mode "
+                  + "{RegistrationMode}.")]
+    public static partial void AccountRegistered(
+        ILogger logger,
+        Guid userId,
+        string? email,
+        UserStatus status,
+        RegistrationMode registrationMode);
+
+    [LoggerMessage(
+        EventId = 1029,
+        Level = LogLevel.Information,
+        Message = "Administrator {ActorId} changed account {UserId} to {Status}.")]
+    public static partial void AccountStatusChanged(
+        ILogger logger,
+        Guid actorId,
+        Guid userId,
+        UserStatus status);
 
     [LoggerMessage(
         EventId = 1030,

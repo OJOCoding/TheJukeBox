@@ -17,6 +17,17 @@ public static class JukeBoxClaims
     public const string IsAdmin = "jukebox:is_admin";
 
     /// <summary>
+    /// The account's <see cref="Domain.UserStatus"/>.
+    /// </summary>
+    /// <remarks>
+    /// Refreshed from the database on every request by the session validator, not merely
+    /// stamped at sign-in. Otherwise approving or disabling someone would have no effect until
+    /// their cookie happened to expire, which for a two-week cookie is not a security control
+    /// at all.
+    /// </remarks>
+    public const string Status = "jukebox:status";
+
+    /// <summary>
     /// The local <see cref="Domain.User.Id"/> of the signed-in user.
     /// </summary>
     /// <remarks>
@@ -54,5 +65,36 @@ public static class JukeBoxClaims
         ArgumentNullException.ThrowIfNull(principal);
 
         return string.Equals(principal.FindFirstValue(IsAdmin), "true", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The account status carried on the principal, or <see cref="Domain.UserStatus.Pending"/>
+    /// when absent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Absent defaults to Pending, not Active: a principal from an older cookie that predates
+    /// this claim must be treated as unapproved rather than waved through. Anything
+    /// unrecognised defaults the same way, so a claim this code does not understand cannot
+    /// fail open.
+    /// </para>
+    /// <para>
+    /// Matched by exact name rather than through <see cref="Enum.TryParse{T}(string, out T)"/>,
+    /// which also accepts the underlying number -- so <c>"1"</c> would have read as Active
+    /// while the authorization policies, which compare claim values as strings, would not have
+    /// admitted it. Two readings of the same claim disagreeing about who is approved is the
+    /// kind of gap worth closing even without a route to reach it.
+    /// </para>
+    /// </remarks>
+    public static Domain.UserStatus StatusOf(this ClaimsPrincipal principal)
+    {
+        ArgumentNullException.ThrowIfNull(principal);
+
+        return principal.FindFirstValue(Status) switch
+        {
+            nameof(Domain.UserStatus.Active) => Domain.UserStatus.Active,
+            nameof(Domain.UserStatus.Disabled) => Domain.UserStatus.Disabled,
+            _ => Domain.UserStatus.Pending,
+        };
     }
 }

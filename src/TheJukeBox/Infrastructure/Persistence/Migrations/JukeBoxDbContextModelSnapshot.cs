@@ -305,11 +305,19 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("GoogleSubjectId")
                         .IsUnique()
                         .HasDatabaseName("IX_Users_GoogleSubjectId");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_Users_Status");
 
                     b.ToTable("Users", (string)null);
                 });

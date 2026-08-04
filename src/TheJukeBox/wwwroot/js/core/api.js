@@ -82,6 +82,27 @@ async function problemOf(response) {
     }
 }
 
+/**
+ * Whether this session may use the library.
+ *
+ * `authenticated` is not enough. Anyone with a Google account can complete sign-in, so the
+ * session is authenticated the moment the account exists -- but on an instance that requires
+ * approval, every library call still answers 403 until an administrator approves it. Treating
+ * authenticated as admitted would render the library shell and then fill it with errors.
+ *
+ * Defined here rather than inline at each call site because it is checked in four places
+ * (chrome, router, boot, welcome) and they must agree; three of them agreeing is a bug that
+ * only shows up for one kind of user.
+ */
+export function isAdmitted(session) {
+    return session?.authenticated === true && session?.status === 'Active';
+}
+
+/** Admitted, and Drive is connected: the state in which the app is fully usable. */
+export function isReady(session) {
+    return isAdmitted(session) && session?.driveConnected === true;
+}
+
 export const api = {
     /** The bootstrap call. Always 200, so the shell can distinguish signed-out from broken. */
     session: () => request('/api/session'),
@@ -98,6 +119,12 @@ export const api = {
     requestSync: () => request('/api/sync', { method: 'POST' }),
 
     signOut: () => request('/api/auth/logout', { method: 'POST' }),
+
+    adminUsers: () => request('/api/admin/users'),
+
+    approveUser: (id) => request(`/api/admin/users/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+
+    disableUser: (id) => request(`/api/admin/users/${encodeURIComponent(id)}/disable`, { method: 'POST' }),
 
     /**
      * The audio URL for a track.
