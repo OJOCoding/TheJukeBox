@@ -436,6 +436,79 @@ h1 {
     inline-size: 0;
 }
 
+/* --- Accounts (admin) ---------------------------------------------------- */
+.accounts__row {
+    display: grid;
+
+    /* Identity takes the slack; the facts and the buttons are sized by content, so a
+       long display name cannot push APPROVE off the edge. */
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-16) var(--space-20);
+    border-bottom: var(--border-hairline) solid var(--color-ink);
+}
+
+.accounts__row:hover {
+    background: var(--color-row-hover);
+}
+
+.accounts__who {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+}
+
+.accounts__name,
+.accounts__email {
+    /* Both come from Google and can be arbitrarily long. Truncating keeps one hostile
+       value from destroying the layout of every other row. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.accounts__name {
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.accounts__email,
+.accounts__count {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+}
+
+.accounts__facts,
+.accounts__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.badge {
+    border: var(--border-medium) solid var(--color-ink);
+    padding: 2px var(--space-8);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
+    white-space: nowrap;
+}
+
+/* Pending is the one that wants attention, so it is the one that is inverted. Status is
+   also spelled out in the badge text, so colour is never the only signal. */
+.badge[data-status="pending"] {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+.badge[data-status="disabled"] {
+    color: var(--color-ink-tertiary);
+    border-color: var(--color-ink-tertiary);
+}
+
 /* --- Transport ----------------------------------------------------------- */
 .transport {
     display: grid;
@@ -621,6 +694,13 @@ h1 {
     .list-row__artist,
     .list-row__album {
         display: none;
+    }
+
+    /* Stacked rather than three columns: on a phone the buttons would otherwise be
+       squeezed to a couple of characters wide. */
+    .accounts__row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-8);
     }
 
     .transport {

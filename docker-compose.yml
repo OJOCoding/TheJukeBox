@@ -30,6 +30,14 @@ services:
       # and host.
       App__TrustForwardedHeadersFromAnyProxy: ${APP_TRUST_PROXY:-true}
 
+      # Who may have an account: AdminApproval (default), Open, or SingleUser.
+      #
+      # Defaulted here as well as in code, so the value an operator is most likely to want
+      # is visible in the file they are already editing. Open means any Google account that
+      # finds your sign-in page gets a working library and permanently consumes one of the
+      # Cloud project's 100 unverified-app user slots.
+      Auth__Registration: ${AUTH_REGISTRATION:-AdminApproval}
+
     volumes:
       # The SQLite database, the Data Protection key ring, and pre-migration backups.
       #

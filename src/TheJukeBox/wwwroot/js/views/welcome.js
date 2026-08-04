@@ -86,6 +86,49 @@ export function renderWelcome(outlet, { store, onSync }) {
             ];
         }
 
+        // Signed in, but not admitted. Checked before the Drive branch: asking someone to
+        // grant Drive access they cannot use yet would be a pointless consent screen, and it
+        // would burn one of the Cloud project's permanent 100 unverified-app user slots.
+        if (session?.status === 'Disabled') {
+            return [
+                el('p', { class: 'tagline', text: 'THIS ACCOUNT HAS BEEN DISABLED.' }),
+                el('p', {
+                    class: 'view-header__count',
+                    text: 'An administrator of this instance has turned off access for this '
+                        + 'account. Contact them if you think this is a mistake.',
+                }),
+                signOutLink(),
+            ];
+        }
+
+        if (session?.status !== 'Active') {
+            const singleUser = session?.registration === 'SingleUser';
+
+            return [
+                el('p', {
+                    class: 'tagline',
+                    text: singleUser
+                        ? 'THIS INSTANCE IS FOR A SINGLE USER.'
+                        : 'YOUR ACCOUNT IS WAITING FOR APPROVAL.',
+                }),
+                el('p', {
+                    class: 'view-header__count',
+
+                    // Told plainly under SingleUser. Nobody is ever going to approve this
+                    // account, and "please wait" for something that will never happen wastes
+                    // the person's time and the operator's.
+                    text: singleUser
+                        ? 'Only its owner can have an account here, so this one will not be '
+                        + 'approved. Nothing of yours has been read or stored beyond your '
+                        + 'name and email address.'
+                        : 'Signing in worked. An administrator of this instance has to approve '
+                        + 'this account before your library can be listed. Check back later, '
+                        + 'or ask them directly.',
+                }),
+                signOutLink(),
+            ];
+        }
+
         if (!driveConnected) {
             return [
                 el('p', {
@@ -115,6 +158,32 @@ export function renderWelcome(outlet, { store, onSync }) {
             }),
             el('a', { class: 'btn', href: '/library', 'data-route': '/library', text: 'GO TO LIBRARY' }),
         ];
+    }
+
+    /**
+     * A way out for an account that is not admitted.
+     *
+     * The top bar, which holds the usual SIGN OUT button, is hidden until an account is
+     * approved -- so without this a pending or disabled user has no way to leave the session,
+     * including no way to try a different Google account.
+     */
+    function signOutLink() {
+        return el('button', {
+            class: 'btn',
+            type: 'button',
+            text: 'SIGN OUT',
+            onclick: async (event) => {
+                event.currentTarget.disabled = true;
+
+                try {
+                    await api.signOut();
+                } finally {
+                    // A full navigation rather than a router push, for the same reason as the
+                    // top bar's button: no state from the previous session should survive.
+                    window.location.assign('/');
+                }
+            },
+        });
     }
 }
 

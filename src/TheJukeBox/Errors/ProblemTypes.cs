@@ -28,4 +28,15 @@ public static class ProblemTypes
 
     /// <summary>A supplied Drive identifier was not of a valid shape.</summary>
     public const string InvalidDriveIdentifier = Prefix + "invalid-drive-identifier";
+
+    /// <summary>
+    /// An administrator tried to disable the account they are signed in with.
+    /// </summary>
+    public const string SelfDisable = Prefix + "admin:self-disable";
+
+    /// <summary>
+    /// An account other than the administrator's was approved on an instance configured
+    /// for a single user.
+    /// </summary>
+    public const string SingleUserInstance = Prefix + "admin:single-user";
 }

@@ -45,6 +45,17 @@ public sealed class User
     public bool IsAdmin { get; set; }
 
     /// <summary>
+    /// Whether this account may use the instance.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see cref="UserStatus.Pending"/> so a row created by any path that forgets
+    /// to set it is closed rather than open.
+    /// </remarks>
+    public UserStatus Status { get; set; } = UserStatus.Pending;
+
+    public bool IsActive => Status == UserStatus.Active;
+
+    /// <summary>
     /// Changed to invalidate every existing session for this user.
     /// </summary>
     /// <remarks>

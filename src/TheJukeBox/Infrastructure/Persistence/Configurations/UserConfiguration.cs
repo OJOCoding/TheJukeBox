@@ -45,5 +45,16 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.CreatedAtUtc).IsRequired();
         builder.Property(user => user.LastSeenAtUtc).IsRequired();
         builder.Property(user => user.IsAdmin).IsRequired();
+
+        builder.Property(user => user.Status)
+            .HasConversion<string>()
+            .HasMaxLength(16)
+            .IsRequired();
+
+        builder.Ignore(user => user.IsActive);
+
+        // The admin screen lists pending accounts, and session validation reads status on
+        // every request.
+        builder.HasIndex(user => user.Status).HasDatabaseName("IX_Users_Status");
     }
 }

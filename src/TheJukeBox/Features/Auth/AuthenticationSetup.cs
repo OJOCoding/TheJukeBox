@@ -114,6 +114,11 @@ public static class AuthenticationSetup
         // the frontend's session handling depends on most.
         options.Events.OnRedirectToLogin = context => Challenge(context, StatusCodes.Status401Unauthorized);
         options.Events.OnRedirectToAccessDenied = context => Challenge(context, StatusCodes.Status403Forbidden);
+
+        // Revalidate against the database on every request. A fourteen-day sliding cookie
+        // that is never re-checked means disabling an account has no effect for a fortnight,
+        // and approving one has no effect until the user happens to sign in again.
+        options.Events.OnValidatePrincipal = UserSessionValidator.ValidateAsync;
     }
 
     private static Task Challenge(RedirectContext<CookieAuthenticationOptions> context, int statusCode)

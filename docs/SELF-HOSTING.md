@@ -180,15 +180,47 @@ makes public hosting legally and practically possible. The scope lives in one pl
 (`DriveClientFactory.Scopes`), but the Picker flow and per-file grant tracking are real work
 and are not built.
 
+### Who is allowed to have an account
+
+Anyone can *reach* your sign-in page, so who gets *in* is controlled by `Auth:Registration`:
+
+| Mode | Behaviour |
+|---|---|
+| `AdminApproval` **(default)** | New accounts land in `Pending` and see "waiting for approval". You approve them under **ACCOUNTS** in the top bar. |
+| `Open` | Anyone who signs in is active immediately. |
+| `SingleUser` | Only your own account can ever be active. Later sign-ins are recorded but can never be approved. |
+
+The first account to sign in is always activated and made administrator — nobody else could
+approve it, so a pending first account would lock the instance permanently.
+
+The default is deliberately the restrictive one. A stranger reaching a public sign-in page and
+being handed a working library is bad on its own, and each such account also permanently
+consumes one of your Cloud project's 100 unverified-app user slots.
+
+Set it in `.env` (or any configuration source):
+
+```
+Auth__Registration=AdminApproval
+```
+
+A pending account signs in successfully but cannot reach anything: every library, streaming and
+sync endpoint answers `403`. It can only see the waiting screen and sign out. Google still has
+their name and email address at that point, and so does your database — an account row is
+created so that you have something to approve.
+
+**Approving and disabling take effect immediately.** The session cookie is revalidated against
+the database on every request, so disabling someone ends their live sessions rather than waiting
+up to fourteen days for the cookie to expire. Disabling also rotates their security stamp, which
+invalidates every cookie they hold. You cannot disable the account you are signed in with; ask
+another administrator, since doing it yourself would lock you out with no way back.
+
+`SingleUser` is the mode to pick if you are exposing an instance publicly but only want it for
+yourself. It is closer to safe-by-default than a reverse-proxy password, and it tells the person
+plainly that they will not be approved rather than leaving them waiting.
+
 ### Before you expose an instance
 
-**There is no registration allowlist.** Any Google account that reaches your sign-in page can
-create an account and index their Drive. The first account to sign in becomes administrator;
-everyone after that is an ordinary user. Until an allowlist exists, either keep the instance
-behind your reverse proxy's own authentication, or accept that strangers can consume your
-100-user cap.
-
-You are also, in practice, operating a service that reads other people's private files. Their
+You are, in practice, operating a service that reads other people's private files. Their
 audio flows through your server, and your database holds tokens that can read their Drive.
 That deserves a privacy note to your users and a plan for what happens to that data if you
 shut the instance down.

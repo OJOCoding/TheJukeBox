@@ -1,11 +1,12 @@
 // Application entry point.
 
 import { alertUser, announce, mmss, spoken } from './core/ui.js';
-import { api, handleUnauthenticatedWith } from './core/api.js';
+import { api, handleUnauthenticatedWith, isAdmitted, isReady } from './core/api.js';
 import { createRouter } from './core/router.js';
 import { createStore } from './core/store.js';
 import { bindMediaSession } from './player/mediasession.js';
 import { createPlayer } from './player/controller.js';
+import { renderAdmin } from './views/admin.js';
 import { renderLibrary } from './views/library.js';
 import { renderSyncProgress, renderWelcome } from './views/welcome.js';
 
@@ -29,6 +30,7 @@ const dom = {
     syncButton: document.getElementById('syncButton'),
     syncChip: document.getElementById('syncChip'),
     signOutButton: document.getElementById('signOutButton'),
+    adminLink: document.getElementById('adminLink'),
 };
 
 // Fail loudly, at once, if the markup and this map have drifted apart.
@@ -72,6 +74,7 @@ const routes = [
     { path: '/', title: 'Welcome', render: (outlet) => renderWelcome(outlet, { store, onSync: requestSync }) },
     { path: '/library', title: 'Library', render: (outlet) => renderLibrary(outlet, { store, player, onSync: requestSync }) },
     { path: '/sync', title: 'Initial sync', render: (outlet) => renderSyncProgress(outlet, { onDone: onSyncFinished }) },
+    { path: '/admin', title: 'Accounts', render: (outlet) => renderAdmin(outlet, { store }) },
 ];
 
 const router = createRouter({
@@ -84,14 +87,24 @@ const router = createRouter({
         // signed-out view at someone who is signed in.
         if (session === null) return { route: null };
 
-        const ready = session.authenticated && session.driveConnected;
+        // Awaiting approval, or disabled: the welcome view is the only one that can say
+        // anything useful, and every other view would just render 403s. The admin screen is
+        // no exception -- a pending administrator has no admin access either.
+        if (!isAdmitted(session)) {
+            return pathname === '/' ? { route: routes[0] } : { redirectTo: '/' };
+        }
 
         // Signed out, or no Drive grant: only the welcome view makes sense.
-        if (!ready) return pathname === '/' ? { route: routes[0] } : { redirectTo: '/' };
+        if (!isReady(session)) return pathname === '/' ? { route: routes[0] } : { redirectTo: '/' };
 
         // An unrecognised path lands on the library. This is also what catches bookmarks
         // to the retired /player page.
         if (!route) return { redirectTo: '/library' };
+
+        // Deep-linking /admin as a non-administrator lands on the library rather than a
+        // permission error. The server refuses the calls regardless; this only keeps the UI
+        // from rendering a screen it cannot populate.
+        if (pathname === '/admin' && session.isAdmin !== true) return { redirectTo: '/library' };
 
         if (pathname === '/' && store.state.trackCount > 0) return { redirectTo: '/library' };
 
@@ -143,10 +156,15 @@ dom.signOutButton.addEventListener('click', async () => {
 store.subscribe(renderChrome);
 
 function renderChrome(state) {
-    const signedIn = state.session?.authenticated === true && state.session?.driveConnected === true;
+    const ready = isReady(state.session);
 
-    dom.topbar.hidden = !signedIn;
-    dom.transport.hidden = !signedIn;
+    dom.topbar.hidden = !ready;
+    dom.transport.hidden = !ready;
+
+    // The admin link only exists for administrators, and is removed again if a session
+    // reload says otherwise -- a disabled administrator must not keep the link to the screen
+    // that would re-enable them.
+    dom.adminLink.hidden = !(ready && state.session?.isAdmin === true);
 
     const track = state.currentTrack;
 
@@ -309,7 +327,7 @@ handleUnauthenticatedWith(() => {
     // the welcome view explain the situation and re-authentication is one click.
     if (store.state.session?.authenticated) {
         alertUser('Your session expired. Please sign in again.');
-        store.set({ session: { authenticated: false, driveConnected: false } });
+        store.set({ session: { authenticated: false, driveConnected: false, status: 'Pending' } });
         router.refresh();
     }
 });
@@ -442,13 +460,16 @@ async function boot() {
         const session = await api.session();
         store.set({ session });
 
-        if (session.authenticated && session.driveConnected) {
+        // Guarded on isReady, not on `authenticated`: a pending account's /api/sync/status
+        // call answers 403, so asking would spend a request to learn nothing and would put
+        // a failure in the console on every load for someone whose only problem is waiting.
+        if (isReady(session)) {
             const status = await api.syncStatus().catch(() => null);
             if (status) store.set({ trackCount: status.trackCount });
             pollSyncChip();
         }
     } catch {
-        store.set({ session: { authenticated: false, driveConnected: false } });
+        store.set({ session: { authenticated: false, driveConnected: false, status: 'Pending' } });
     }
 
     renderChrome(store.state);

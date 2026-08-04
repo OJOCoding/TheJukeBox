@@ -20,7 +20,10 @@
 // Offline playback, when it arrives, will store whole files as blobs in IndexedDB and
 // resolve them in the app rather than here, so 206 never enters the picture.
 
-const VERSION = 'v1';
+// Bumped whenever PRECACHE changes: the install handler only re-runs addAll for a cache name
+// it has not seen, so leaving the version alone would keep serving the old shell to everyone
+// who already has the worker installed.
+const VERSION = 'v2';
 
 const SHELL_CACHE = `jb-shell-${VERSION}`;
 const ART_CACHE = `jb-art-${VERSION}`;
@@ -39,8 +42,10 @@ const PRECACHE = [
     '/js/player/queue.js',
     '/js/player/controller.js',
     '/js/player/mediasession.js',
+    '/js/ui/virtual-list.js',
     '/js/views/welcome.js',
     '/js/views/library.js',
+    '/js/views/admin.js',
     '/manifest.webmanifest',
     '/favicon.svg',
     '/icons/icon-192.png',
