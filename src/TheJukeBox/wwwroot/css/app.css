@@ -85,6 +85,13 @@ body {
 .topbar__nav {
     display: flex;
     gap: var(--space-8);
+
+    /* Wraps, and is allowed to shrink below its content width. The nav grew from two links to
+       five when albums and artists arrived; without these, the row forced the whole document
+       wider than the viewport on a phone, and the horizontal scroll that produced affected
+       every view rather than just the top bar. */
+    flex-wrap: wrap;
+    min-inline-size: 0;
 }
 
 .topbar__spacer {
@@ -538,6 +545,112 @@ h1 {
     font-size: var(--text-sm);
 }
 
+/* --- Album grid ---------------------------------------------------------- */
+.grid {
+    list-style: none;
+    margin: 0;
+    padding: var(--space-20);
+    display: grid;
+
+    /* auto-fill with a minimum, so the column count follows the viewport without a media
+       query per breakpoint. minmax(0, 1fr) rather than 1fr: a long title in a grid child
+       would otherwise refuse to shrink and push the column wider than its track. */
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-20);
+}
+
+.grid--compact {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: var(--space-12);
+    padding-block: 0;
+}
+
+.grid__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+}
+
+.grid__link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    min-inline-size: 0;
+    text-decoration: none;
+    color: inherit;
+}
+
+.grid__title {
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.grid__title,
+.grid__sub,
+.grid__facts {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.grid__sub {
+    font-size: var(--text-sm);
+}
+
+.grid__facts {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+}
+
+.grid__item .btn {
+    margin-block-start: var(--space-8);
+}
+
+/* --- Cover art ----------------------------------------------------------- */
+.cover {
+    display: grid;
+    place-items: center;
+
+    /* Square, whatever the image's own aspect ratio. Cover art is nominally square but
+       plenty of embedded pictures are not, and a grid of varying heights looks broken. */
+    aspect-ratio: 1;
+    inline-size: 100%;
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-recess);
+    overflow: hidden;
+}
+
+.cover img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+}
+
+.cover__glyph {
+    font-size: var(--text-4xl);
+    color: var(--color-ink-tertiary);
+}
+
+/* --- Album and artist detail header -------------------------------------- */
+.group-header {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    align-items: end;
+    gap: var(--space-20);
+    padding: var(--space-20);
+    border-bottom: var(--border-medium) solid var(--color-ink);
+}
+
+.group-header__facts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--text-sm);
+    color: var(--color-ink-tertiary);
+}
+
 /* --- Playlist cards ------------------------------------------------------ */
 .cards {
     list-style: none;
@@ -831,7 +944,10 @@ h1 {
         gap: var(--space-15);
     }
 
-    .btn {
+    /* Full-width buttons are for the welcome panel's stacked actions. Scoped away from the
+       small buttons used in toolbars and rows, which were being stretched to 280px each --
+       enough on its own to push the top bar past the viewport. */
+    .btn:not(.btn--sm) {
         width: 100%;
         max-width: 280px;
     }
@@ -852,6 +968,20 @@ h1 {
     .accounts__row {
         grid-template-columns: minmax(0, 1fr);
         gap: var(--space-8);
+    }
+
+    /* Two columns of covers on a phone rather than one: a single column turns a modest
+       library into a very long scroll, and the titles stay legible at this size. */
+    .grid {
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+        gap: var(--space-12);
+        padding: var(--space-12);
+    }
+
+    /* The cover stacks above the facts, or a 180px art column leaves nothing for the text. */
+    .group-header {
+        grid-template-columns: minmax(0, 1fr);
+        max-inline-size: 320px;
     }
 
     /* The duration is the first thing to go on a narrow queue row: the move and remove

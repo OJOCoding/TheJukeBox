@@ -126,6 +126,16 @@ export const api = {
 
     signOut: () => request('/api/auth/logout', { method: 'POST' }),
 
+    // --- Browsing by album and artist ---
+
+    albums: ({ signal = null } = {}) => request('/api/albums', { signal }),
+
+    album: (key, { signal = null } = {}) => request(`/api/albums/${encodeURIComponent(key)}`, { signal }),
+
+    artists: ({ signal = null } = {}) => request('/api/artists', { signal }),
+
+    artist: (key, { signal = null } = {}) => request(`/api/artists/${encodeURIComponent(key)}`, { signal }),
+
     // --- Playlists ---
 
     playlists: () => request('/api/playlists'),

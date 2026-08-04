@@ -26,6 +26,9 @@ deliberately monochrome "technical blueprint" style.
   when Drive is slow. After the first full listing it refreshes from Drive's change feed,
   which is a single request when nothing has moved — that is what makes a 15-minute timer
   affordable rather than abusive.
+- **Browse by album and artist.** A grid of your cover art, and an artist page with their
+  records. Albums group by album artist so compilations stay whole; artists group by track
+  artist so the people on a compilation still appear.
 - **Playlists, a visible queue, and a resume point.** Build playlists and reorder them, see
   and edit the queue, and pick up where you left off — the queue, its position within the
   track, and shuffle and repeat are saved server-side, so closing the tab or moving to your
@@ -142,6 +145,10 @@ All endpoints require an authenticated session except where noted. Errors are
 | GET | `/api/sync/status` | |
 | POST | `/api/sync` | Incremental. Idempotent; 202 whether or not it queued new work |
 | POST | `/api/sync/full` | Discards the change token and relists everything |
+| GET | `/api/albums` | Grouped by album artist, with cover art and runtime |
+| GET | `/api/albums/{key}` | One album's tracks, in disc and track order |
+| GET | `/api/artists` | Grouped by track artist, with album and track counts |
+| GET | `/api/artists/{key}` | One artist's albums and every track |
 | GET | `/api/playlists` | With track counts and total runtime |
 | POST | `/api/playlists` | `{ name, description? }` |
 | GET | `/api/playlists/{id}` | Items in order, including unavailable ones |
@@ -172,8 +179,6 @@ In Development an OpenAPI document is at `/openapi/v1.json` with a browsable ref
 Being explicit, because the previous version of this file described features that did not
 exist:
 
-- **Album and artist browsing.** The data is indexed and sortable; the dedicated views are
-  not built.
 - **Drag-and-drop reordering.** Playlists reorder with move-up/move-down buttons, which work
   by keyboard and touch. Dragging can be added on top without changing the model.
 - **Offline playback.** The app shell is cached and installable, so it loads offline, but

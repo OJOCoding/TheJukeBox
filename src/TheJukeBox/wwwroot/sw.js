@@ -23,7 +23,7 @@
 // Bumped whenever PRECACHE changes: the install handler only re-runs addAll for a cache name
 // it has not seen, so leaving the version alone would keep serving the old shell to everyone
 // who already has the worker installed.
-const VERSION = 'v3';
+const VERSION = 'v4';
 
 const SHELL_CACHE = `jb-shell-${VERSION}`;
 const ART_CACHE = `jb-art-${VERSION}`;
@@ -49,6 +49,7 @@ const PRECACHE = [
     '/js/views/admin.js',
     '/js/views/queue.js',
     '/js/views/playlists.js',
+    '/js/views/browse.js',
     '/manifest.webmanifest',
     '/favicon.svg',
     '/icons/icon-192.png',

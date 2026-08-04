@@ -205,6 +205,7 @@ app.MapAuthEndpoints();
 app.MapSessionEndpoint();
 app.MapAdminEndpoints();
 app.MapLibraryEndpoints();
+app.MapBrowseEndpoints();
 app.MapArtEndpoints();
 app.MapStreamingEndpoints();
 app.MapPlaylistEndpoints();
@@ -255,7 +256,7 @@ static void LogStartupFacts(WebApplication application)
     // the sign-in screen repeats it where the user will actually see it.
     if (google.LooksLikePlaceholder)
     {
-        Log.GoogleCredentialsLookLikePlaceholders(application.Logger);
+        Log.GoogleCredentialsLookLikePlaceholders(application.Logger, google.ClientIdHint);
     }
 
     var appOptions = application.Services.GetRequiredService<IOptions<AppOptions>>().Value;
