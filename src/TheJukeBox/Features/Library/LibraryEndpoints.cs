@@ -84,7 +84,9 @@ public static class LibraryEndpoints
                 t.MetadataSource.ToString(),
                 t.ArtSha256,
                 t.DeletedAtUtc == null,
-                $"/api/tracks/{t.Id}/stream"))
+                $"/api/tracks/{t.Id}/stream",
+                t.PlayCount,
+                t.LastPlayedAtUtc))
             .ToListAsync(cancellationToken);
 
         return Results.Ok(new TrackPageDto(total, skip, take, page));
@@ -98,6 +100,16 @@ public static class LibraryEndpoints
             .ThenBy(t => t.Title),
         "added" => query.OrderByDescending(t => t.AddedAtUtc).ThenBy(t => t.Title),
         "duration" => query.OrderBy(t => t.DurationSeconds).ThenBy(t => t.Title),
+
+        // The listening sorts, from the denormalised counters on Track rather than from the
+        // history log -- which is pruned, and would answer "most played" wrongly once it was.
+        "played" => query.OrderByDescending(t => t.PlayCount).ThenBy(t => t.Title),
+
+        // Never-played tracks sort last rather than first: a null LastPlayedAtUtc ascends to
+        // the top in SQLite, which would fill "recently played" with everything unplayed.
+        "recent" => query.OrderByDescending(t => t.LastPlayedAtUtc != null)
+            .ThenByDescending(t => t.LastPlayedAtUtc)
+            .ThenBy(t => t.Title),
 
         // Title, and a tiebreak on Id. Without a deterministic tiebreak, two tracks with
         // the same title can swap places between pages, so paging silently shows one
@@ -183,7 +195,9 @@ public sealed record TrackDto(
     string? ArtSha256,
 
     bool IsAvailable,
-    string StreamUrl);
+    string StreamUrl,
+    int PlayCount,
+    DateTimeOffset? LastPlayedAtUtc);
 
 public sealed record TrackPageDto(int Total, int Offset, int Limit, IReadOnlyList<TrackDto> Items);
 

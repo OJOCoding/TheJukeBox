@@ -436,6 +436,157 @@ h1 {
     inline-size: 0;
 }
 
+/* --- Queue and playlist rows --------------------------------------------- */
+.view-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.queue {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.queue__row {
+    display: grid;
+
+    /* Title takes the slack; the duration and each action are sized by content, so a long
+       title cannot push the remove button off the edge. */
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-8);
+    padding-inline: var(--space-20);
+    border-bottom: var(--border-hairline) solid var(--color-ink);
+}
+
+/* Rows with move buttons carry two extra controls. Declared as a modifier of the grid rather
+   than a separate class, so both lists share every other rule. */
+.queue__row:has([data-move]) {
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+}
+
+.queue__row:hover {
+    background: var(--color-row-hover);
+}
+
+.queue__row[aria-current="true"] {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* The playing row inverts, so its buttons have to invert with it or they vanish. */
+.queue__row[aria-current="true"] .queue__artist,
+.queue__row[aria-current="true"] .queue__duration {
+    color: var(--color-surface);
+}
+
+.queue__row[aria-current="true"] .icon-btn {
+    color: var(--color-surface);
+}
+
+.queue__row[data-unavailable] .queue__title {
+    text-decoration: line-through;
+    color: var(--color-ink-tertiary);
+}
+
+/* The whole title block is the play button: a small target on a phone is the single most
+   common complaint about lists like this. */
+.queue__play {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+    padding: var(--space-12) 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.queue__play:disabled {
+    cursor: default;
+}
+
+.queue__title,
+.queue__artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.queue__title {
+    font-weight: var(--weight-semibold);
+}
+
+.queue__artist,
+.queue__duration {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+}
+
+.queue__duration {
+    font-variant-numeric: tabular-nums;
+}
+
+.icon-btn--sm {
+    padding: var(--space-8);
+    font-size: var(--text-sm);
+}
+
+/* --- Playlist cards ------------------------------------------------------ */
+.cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cards__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-16);
+    padding: var(--space-16) var(--space-20);
+    border-bottom: var(--border-hairline) solid var(--color-ink);
+}
+
+.cards__item:hover {
+    background: var(--color-row-hover);
+}
+
+.cards__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+}
+
+.cards__link {
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cards__facts {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cards__actions {
+    display: flex;
+    gap: var(--space-8);
+}
+
 /* --- Accounts (admin) ---------------------------------------------------- */
 .accounts__row {
     display: grid;
@@ -701,6 +852,21 @@ h1 {
     .accounts__row {
         grid-template-columns: minmax(0, 1fr);
         gap: var(--space-8);
+    }
+
+    /* The duration is the first thing to go on a narrow queue row: the move and remove
+       buttons need their full touch target, and mm:ss is the least load-bearing column. */
+    .queue__row .queue__duration {
+        display: none;
+    }
+
+    .queue__row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding-inline: var(--space-12);
+    }
+
+    .queue__row:has([data-move]) {
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
     }
 
     .transport {

@@ -26,6 +26,10 @@ deliberately monochrome "technical blueprint" style.
   when Drive is slow. After the first full listing it refreshes from Drive's change feed,
   which is a single request when nothing has moved — that is what makes a 15-minute timer
   affordable rather than abusive.
+- **Playlists, a visible queue, and a resume point.** Build playlists and reorder them, see
+  and edit the queue, and pick up where you left off — the queue, its position within the
+  track, and shuffle and repeat are saved server-side, so closing the tab or moving to your
+  phone resumes the same listening. Play counts and a listening history come with it.
 - **Metadata comes from your files.** Embedded ID3/Vorbis/MP4 tags supply artist, album,
   track number, duration, and cover art. Files without tags fall back to parsing the file
   name and folder. Tags are read using HTTP range requests — only the few hundred
@@ -132,12 +136,25 @@ All endpoints require an authenticated session except where noted. Errors are
 | POST | `/api/auth/logout` | |
 | GET | `/api/auth/me` | |
 | POST | `/api/auth/drive/disconnect` | Forgets the Drive grant |
-| GET | `/api/tracks?q=&sort=&limit=&offset=` | `sort`: `title`, `artist`, `album`, `added`, `duration` |
+| GET | `/api/tracks?q=&sort=&limit=&offset=` | `sort`: `title`, `artist`, `album`, `added`, `duration`, `played`, `recent` |
 | GET | `/api/tracks/{id}/stream` | `GET` and `HEAD`; honours `Range` |
 | GET | `/api/art/{sha256}/{size}` | `size`: 96 or 640 |
 | GET | `/api/sync/status` | |
 | POST | `/api/sync` | Incremental. Idempotent; 202 whether or not it queued new work |
 | POST | `/api/sync/full` | Discards the change token and relists everything |
+| GET | `/api/playlists` | With track counts and total runtime |
+| POST | `/api/playlists` | `{ name, description? }` |
+| GET | `/api/playlists/{id}` | Items in order, including unavailable ones |
+| PATCH | `/api/playlists/{id}` | `{ name?, description? }`; empty description clears it |
+| DELETE | `/api/playlists/{id}` | |
+| GET | `/api/playlists/{id}/tracks` | Playable track ids in order. What the player queues |
+| POST | `/api/playlists/{id}/tracks` | `{ trackIds }`; appends, skipping ids you do not own |
+| DELETE | `/api/playlists/{id}/items/{itemId}` | Closes the gap in the ordering |
+| PUT | `/api/playlists/{id}/order` | `{ itemIds }`, the complete list; 409 if it no longer matches |
+| GET | `/api/playback` | The saved queue, filtered to what is still playable |
+| PUT | `/api/playback` | Saves the queue, cursor, offset and mode |
+| GET | `/api/history?limit=` | Newest first |
+| POST | `/api/history` | `{ trackId, secondsPlayed, completed }` |
 | GET | `/api/admin/users` | Administrator only |
 | GET | `/api/admin/registration` | Administrator only; the configured registration mode |
 | POST | `/api/admin/users/{id}/approve` | Administrator only |
@@ -155,10 +172,10 @@ In Development an OpenAPI document is at `/openapi/v1.json` with a browsable ref
 Being explicit, because the previous version of this file described features that did not
 exist:
 
-- **Playlists and a saved queue.** Playback works and a queue exists in memory, but
-  nothing is persisted between sessions.
 - **Album and artist browsing.** The data is indexed and sortable; the dedicated views are
   not built.
+- **Drag-and-drop reordering.** Playlists reorder with move-up/move-down buttons, which work
+  by keyboard and touch. Dragging can be added on top without changing the model.
 - **Offline playback.** The app shell is cached and installable, so it loads offline, but
   audio itself is not stored for offline listening.
 - **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block

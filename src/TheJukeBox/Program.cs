@@ -7,6 +7,7 @@ using TheJukeBox.Errors;
 using TheJukeBox.Features.Admin;
 using TheJukeBox.Features.Auth;
 using TheJukeBox.Features.Library;
+using TheJukeBox.Features.Playlists;
 using TheJukeBox.Features.Streaming;
 using TheJukeBox.Infrastructure.Drive;
 using TheJukeBox.Infrastructure.Metadata;
@@ -105,6 +106,9 @@ builder.Services.AddScoped<IDriveChangesClient, DriveChangesClient>();
 // scoped synchroniser per job.
 builder.Services.AddScoped<LibrarySynchroniser>();
 
+// Playlist reads and mutations. Scoped, because it holds the request's DbContext.
+builder.Services.AddScoped<PlaylistService>();
+
 // Tag reading. Behind an interface so the library choice stays swappable and the
 // extraction pipeline is testable without real audio files.
 builder.Services.AddSingleton<ITagReader, AtlTagReader>();
@@ -179,8 +183,12 @@ app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    // Anonymous, or they are unreachable. The fallback policy requires an approved account, so
+    // without this the document answers 401 -- and Scalar, which fetches it with JavaScript,
+    // renders an empty reference with no visible reason. Development only, and a development
+    // instance is localhost, so the exposure is the API shape to whoever is already running it.
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
 // UseDefaultFiles rewrites "/" to "/index.html" before UseStaticFiles serves it, so
@@ -199,6 +207,8 @@ app.MapAdminEndpoints();
 app.MapLibraryEndpoints();
 app.MapArtEndpoints();
 app.MapStreamingEndpoints();
+app.MapPlaylistEndpoints();
+app.MapPlaybackEndpoints();
 
 app.MapGet("/api/health", () => TypedResults.Ok(new { status = "ok" })).AllowAnonymous();
 

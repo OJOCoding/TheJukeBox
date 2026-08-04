@@ -68,5 +68,13 @@ internal sealed class TrackConfiguration : IEntityTypeConfiguration<Track>
         // deliberately, because a client needs to be told about removals too.
         builder.HasIndex(t => new { t.UserId, t.RowVersion })
             .HasDatabaseName("IX_Tracks_RowVersion");
+
+        // The two listening sorts, indexed like the other browse orders so "most played"
+        // and "recently played" are seeks rather than full sorts of the library.
+        builder.HasIndex(t => new { t.UserId, t.DeletedAtUtc, t.PlayCount })
+            .HasDatabaseName("IX_Tracks_Browse_PlayCount");
+
+        builder.HasIndex(t => new { t.UserId, t.DeletedAtUtc, t.LastPlayedAtUtc })
+            .HasDatabaseName("IX_Tracks_Browse_LastPlayed");
     }
 }

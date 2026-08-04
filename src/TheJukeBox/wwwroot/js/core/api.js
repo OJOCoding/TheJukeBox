@@ -35,7 +35,7 @@ export function handleUnauthenticatedWith(callback) {
     onUnauthenticated = callback;
 }
 
-async function request(path, { method = 'GET', body = null, signal = null } = {}) {
+async function request(path, { method = 'GET', body = null, signal = null, keepalive = false } = {}) {
     const headers = {
         // Explicit, so the server's cookie handler answers 401 rather than redirecting
         // to a login page. A fetch handed an HTML document where it expected JSON is the
@@ -55,6 +55,12 @@ async function request(path, { method = 'GET', body = null, signal = null } = {}
         // one cannot exist.
         credentials: 'same-origin',
         signal,
+
+        // Lets a request outlive the page. Used for the final queue save on pagehide, where a
+        // normal fetch is cancelled as the document unloads and the last few seconds of
+        // position are lost. Browsers cap keepalive bodies at 64 KB, which the queue's own cap
+        // is sized to stay under.
+        keepalive,
     });
 
     if (response.status === 401) {
@@ -119,6 +125,48 @@ export const api = {
     requestSync: () => request('/api/sync', { method: 'POST' }),
 
     signOut: () => request('/api/auth/logout', { method: 'POST' }),
+
+    // --- Playlists ---
+
+    playlists: () => request('/api/playlists'),
+
+    playlist: (id) => request(`/api/playlists/${encodeURIComponent(id)}`),
+
+    playlistTrackIds: (id) => request(`/api/playlists/${encodeURIComponent(id)}/tracks`),
+
+    createPlaylist: (name, description = null) =>
+        request('/api/playlists', { method: 'POST', body: { name, description } }),
+
+    updatePlaylist: (id, changes) =>
+        request(`/api/playlists/${encodeURIComponent(id)}`, { method: 'PATCH', body: changes }),
+
+    deletePlaylist: (id) =>
+        request(`/api/playlists/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    addToPlaylist: (id, trackIds) =>
+        request(`/api/playlists/${encodeURIComponent(id)}/tracks`, { method: 'POST', body: { trackIds } }),
+
+    removePlaylistItem: (id, itemId) =>
+        request(
+            `/api/playlists/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`,
+            { method: 'DELETE' },
+        ),
+
+    reorderPlaylist: (id, itemIds) =>
+        request(`/api/playlists/${encodeURIComponent(id)}/order`, { method: 'PUT', body: { itemIds } }),
+
+    // --- Playback state and history ---
+
+    playbackState: () => request('/api/playback'),
+
+    savePlaybackState: (state, { keepalive = false } = {}) =>
+        request('/api/playback', { method: 'PUT', body: state, keepalive }),
+
+    history: (limit = 50) => request(`/api/history?limit=${encodeURIComponent(limit)}`),
+
+    recordPlay: (play) => request('/api/history', { method: 'POST', body: play }),
+
+    // --- Administration ---
 
     adminUsers: () => request('/api/admin/users'),
 
