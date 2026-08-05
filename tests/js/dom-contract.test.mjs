@@ -100,3 +100,54 @@ describe('the templates main.js and its views clone', () => {
         }
     });
 });
+
+describe('the hidden attribute', () => {
+    /**
+     * `hidden` has to actually hide.
+     *
+     * The browser's `[hidden] { display: none }` lives in the user-agent stylesheet, so any author
+     * `display` rule outranks it -- author beats UA regardless of specificity. This app toggles
+     * `hidden` from JavaScript on the top bar, the transport, the account menu and the avatar, and
+     * every one of those carries an author `display`. So none of them hid: the track bar showed on
+     * the landing page, the account menu was permanently open, and a signed-out visitor saw the nav
+     * and the sync button.
+     *
+     * Nothing in the DOM would reveal this to a test that only checks the `hidden` property -- the
+     * property was correct the whole time. The rule below is the fix, and this is the guard.
+     */
+    it('is defeated by no author display rule', () => {
+        const base = readFileSync(join(wwwroot, 'css', 'base.css'), 'utf8');
+
+        // Whitespace-tolerant: the point is that the declaration exists and is !important.
+        const rule = /\[hidden\]\s*\{[^}]*display\s*:\s*none\s*!important/;
+
+        assert.match(
+            base,
+            rule,
+            'base.css must contain [hidden] { display: none !important }. Without it, any component '
+            + 'that sets its own display ignores the hidden attribute entirely.',
+        );
+    });
+
+    /**
+     * And the elements that rely on it are worth naming, so that removing the rule fails with a
+     * list of what breaks rather than an abstract complaint.
+     */
+    it('is what the shell relies on to hide its chrome', () => {
+        const toggled = [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*\bhidden\b/g)].map((m) => m[1]);
+
+        assert.ok(
+            toggled.length >= 3,
+            `expected several elements to ship hidden; found ${toggled.join(', ') || 'none'}`,
+        );
+
+        // These three are the ones whose visibility is a correctness question rather than a
+        // cosmetic one: playback controls with nothing to control, and a menu that opens itself.
+        for (const id of ['topbar', 'transport', 'profileMenu']) {
+            assert.ok(
+                toggled.includes(id),
+                `#${id} should ship with the hidden attribute and be revealed by JavaScript`,
+            );
+        }
+    });
+});
