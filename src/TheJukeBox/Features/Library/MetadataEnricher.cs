@@ -105,6 +105,12 @@ internal sealed class MetadataEnricher(
         // Google on every call, so asking per file would add thousands of round trips.
         var accessToken = new DriveAccessToken(driveClientFactory, userId);
 
+        // Fetched here, before any parallel work starts. DriveAccessToken is safe to call
+        // concurrently now, but obtaining the token reads this request's DbContext -- so doing it
+        // here keeps that read off the parallel path entirely, and a genuine auth failure surfaces
+        // once as a failed pass instead of once per worker as four confusing per-file warnings.
+        await accessToken.GetAsync(cancellationToken);
+
         // The client streaming already registered: no timeout, and a shared handler, so a
         // pass over thousands of files reuses connections instead of exhausting sockets.
         var httpClient = httpClientFactory.CreateClient(StreamingEndpoints.HttpClientName);

@@ -13,6 +13,7 @@
 import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss, notify } from '../core/ui.js';
 import { api, ApiError } from '../core/api.js';
 import { VIRTUALISE_ABOVE, createVirtualList } from '../ui/virtual-list.js';
+import { askForText, chooseFrom } from '../ui/dialog.js';
 
 /** Must match --row-h in app.css: windowed rows are positioned arithmetically. */
 const ROW_HEIGHT = 56;
@@ -155,23 +156,19 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         }
     }
 
-    /** Offers to make a first playlist, returning it, or null if the user backed out. */
+    /** Offers to make a playlist, returning it, or null if the user backed out. */
     async function createPlaylistFor(track) {
-        const name = window.prompt(
-            `You have no playlists yet.\n\nName one, and "${track.title}" will be added to it:`,
-            'Favourites');
+        const name = await askForText({
+            title: 'NEW PLAYLIST',
+            message: `Name it, and "${track.title}" will be added to it.`,
+            value: 'Favourites',
+            confirmLabel: 'CREATE',
+        });
 
         if (name === null) return null;
 
-        const trimmed = name.trim();
-
-        if (trimmed.length === 0) {
-            alertUser('A playlist needs a name.');
-            return null;
-        }
-
         try {
-            const created = await api.createPlaylist(trimmed);
+            const created = await api.createPlaylist(name);
 
             notify(`Created the playlist ${created.name}.`);
 
@@ -182,26 +179,27 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         }
     }
 
-    /** Numbered prompt, with 0 to make a new playlist. */
+    /**
+     * A button per playlist, plus one to make a new one.
+     *
+     * Buttons rather than "type the number next to the name you want", which is what a native
+     * prompt reduced this to. It also cannot throw: prompt() is unsupported in some browser
+     * contexts and raises "prompt() is not supported", which is precisely what made this feature
+     * appear to do nothing -- the call threw, the rejection went unhandled, and no dialog ever
+     * appeared.
+     */
     async function choosePlaylistFor(track, playlists) {
-        const menu = playlists.map((p, index) => `${index + 1}. ${p.name}`).join('\n');
+        const chosen = await chooseFrom({
+            title: 'ADD TO PLAYLIST',
+            message: `Where should "${track.title}" go?`,
+            items: playlists,
+            label: (playlist) => `${playlist.name} (${playlist.trackCount})`,
+            newLabel: 'NEW PLAYLIST',
+        });
 
-        const answer = window.prompt(
-            `Add "${track.title}" to which playlist?\n\n${menu}\n\n0. New playlist…`,
-            '1');
+        if (chosen === null) return null;
 
-        if (answer === null) return null;
-
-        const choice = Number.parseInt(answer.trim(), 10);
-
-        if (choice === 0) return createPlaylistFor(track);
-
-        if (!Number.isInteger(choice) || choice < 1 || choice > playlists.length) {
-            alertUser(`"${answer.trim()}" is not one of the listed playlists.`);
-            return null;
-        }
-
-        return playlists[choice - 1];
+        return chosen === 'new' ? createPlaylistFor(track) : chosen;
     }
 
     /** @type {Array<object>} the rows currently rendered, in display order. */

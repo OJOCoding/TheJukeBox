@@ -7,6 +7,7 @@
 
 import { alertUser, announce, clear, el, isoDuration, mmss, notify } from '../core/ui.js';
 import { ApiError, api } from '../core/api.js';
+import { askForText, askToConfirm } from '../ui/dialog.js';
 
 /** "1 h 12 m", or "4 m". For a whole playlist, where seconds are noise. */
 function runtime(seconds) {
@@ -248,6 +249,16 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
                 text: 'ADD TRACKS',
                 'aria-label': `Add tracks to ${title} from the library`,
             }),
+            // The way tracks get in. There was no route from a playlist to the library at all, so
+            // "open the playlist and add something" was a dead end -- the only path in was to find
+            // the track in the library first and remember which playlist you wanted.
+            el('a', {
+                class: 'btn btn--sm',
+                href: '/library',
+                'data-route': '/library',
+                text: 'ADD TRACKS',
+                title: 'Pick a track in the library, then use ADD TO PLAYLIST',
+            }),
             el('button', {
                 class: 'btn btn--sm',
                 type: 'button',
@@ -389,23 +400,17 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
     }
 
     async function rename() {
-        // A native prompt rather than an inline editor or a custom modal. It is focus-trapped,
-        // labelled and dismissible for free, which a hand-rolled dialog only becomes after real
-        // work -- and this app has no dialog primitive yet.
-        const next = window.prompt('New name for this playlist', title);
+        const next = await askForText({
+            title: 'RENAME PLAYLIST',
+            value: title,
+            confirmLabel: 'RENAME',
+        });
 
         if (next === null) return;
 
-        const trimmed = next.trim();
-
-        if (trimmed.length === 0) {
-            alertUser('A playlist needs a name.');
-            return;
-        }
-
         try {
-            await api.updatePlaylist(playlistId, { name: trimmed });
-            notify(`Renamed to ${trimmed}.`);
+            await api.updatePlaylist(playlistId, { name: next });
+            notify(`Renamed to ${next}.`);
             await load();
         } catch (error) {
             alertUser(error.message);
@@ -415,7 +420,13 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
     async function remove() {
         // Confirmed, because deleting a playlist cannot be undone -- there is no trash for these,
         // and the tracks themselves are untouched so the loss is exactly the curation.
-        if (!window.confirm(`Delete the playlist "${title}"? This cannot be undone.`)) return;
+        const confirmed = await askToConfirm({
+            title: 'DELETE PLAYLIST',
+            message: `Delete "${title}"? This cannot be undone. The tracks themselves are not touched.`,
+            confirmLabel: 'DELETE',
+        });
+
+        if (!confirmed) return;
 
         try {
             await api.deletePlaylist(playlistId);

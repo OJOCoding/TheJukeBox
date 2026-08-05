@@ -44,6 +44,7 @@ const PRECACHE = [
     '/js/player/mediasession.js',
     '/js/player/persistence.js',
     '/js/ui/virtual-list.js',
+    '/js/ui/dialog.js',
     '/js/views/welcome.js',
     '/js/views/library.js',
     '/js/views/admin.js',
