@@ -276,6 +276,17 @@ h1 {
     color: var(--color-ink-tertiary);
 }
 
+/* Which row the header's actions will act on. Without it, "ADD TO QUEUE" gave no clue what it
+   would add, so the only way to find out was to press it. */
+.view-header__selected {
+    flex-basis: 100%;
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .field {
     display: flex;
     align-items: center;
@@ -441,6 +452,241 @@ h1 {
     height: 100%;
     background: var(--color-ink);
     inline-size: 0;
+}
+
+/* --- Account menu --------------------------------------------------------- */
+.menu {
+    position: relative;
+    flex: none;
+}
+
+.menu__trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: 4px var(--space-8);
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+    cursor: pointer;
+}
+
+.menu__trigger:hover {
+    background: var(--color-row-hover);
+}
+
+.menu__avatar,
+.menu__initial {
+    inline-size: 28px;
+    block-size: 28px;
+    border: var(--border-hairline) solid var(--color-ink);
+}
+
+.menu__avatar {
+    object-fit: cover;
+}
+
+/* Behind the avatar, and what shows when Google's picture URL has expired -- which it does. */
+.menu__initial {
+    display: grid;
+    place-items: center;
+    background: var(--color-ink);
+    color: var(--color-surface);
+    font-weight: var(--weight-bold);
+    font-size: var(--text-sm);
+}
+
+.menu__caret {
+    font-size: var(--text-xs);
+}
+
+.menu__panel {
+    position: absolute;
+    inset-block-start: calc(100% + var(--space-8));
+    inset-inline-end: 0;
+    z-index: 40;
+
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 200px;
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-raised);
+}
+
+.menu__email {
+    padding: var(--space-8) var(--space-12);
+    border-block-end: var(--border-hairline) solid var(--color-ink);
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.menu__item {
+    padding: var(--space-12);
+    border: none;
+    background: none;
+    color: var(--color-ink);
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.menu__item:hover {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* --- Now playing ---------------------------------------------------------- */
+.now {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-32);
+    padding: var(--space-32);
+}
+
+.now__art {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    inline-size: 100%;
+    border: var(--border-heavy) solid var(--color-ink);
+    background: var(--color-recess);
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+}
+
+.now__art img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+}
+
+.now__glyph {
+    font-size: var(--text-6xl);
+    color: var(--color-ink-tertiary);
+}
+
+.now__meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    min-inline-size: 0;
+}
+
+.now__title {
+    font-size: var(--text-4xl);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    line-height: 1.15;
+
+    /* Wraps rather than truncating: this is the one view with room for a long title, and
+       clipping the thing the page exists to show would be perverse. */
+    overflow-wrap: anywhere;
+}
+
+.now__artist {
+    font-size: var(--text-xl);
+}
+
+.now__album,
+.now__facts {
+    font-size: var(--text-sm);
+    color: var(--color-ink-tertiary);
+}
+
+.now__facts {
+    font-variant-numeric: tabular-nums;
+}
+
+.now__actions {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    margin-block-start: var(--space-8);
+}
+
+/* --- Landing-page description -------------------------------------------- */
+.blurb {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    max-inline-size: 60ch;
+    margin: var(--space-20) auto;
+    text-align: start;
+    font-size: var(--text-sm);
+    line-height: var(--leading-base);
+    color: var(--color-ink-secondary);
+}
+
+/* --- Toasts --------------------------------------------------------------- */
+/* The visible half of alertUser. Until these existed, every error in the app was written to a
+   1px clipped live region and shown to nobody, so working features looked broken. */
+.toasts {
+    position: fixed;
+
+    /* Above the transport, which is fixed to the bottom, so a message never hides the
+       controls the user is reaching for. */
+    inset-block-end: calc(var(--transport-h, 96px) + var(--space-16));
+    inset-inline: var(--space-16);
+    z-index: 50;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    align-items: center;
+
+    /* The container spans the viewport so its children can centre, but must not swallow clicks
+       aimed at what is underneath. The toasts themselves re-enable pointer events. */
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+    max-inline-size: min(560px, 100%);
+    padding: var(--space-12) var(--space-16);
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-surface);
+    box-shadow: var(--shadow-control);
+    font-size: var(--text-sm);
+    line-height: var(--leading-base);
+}
+
+.toast__close {
+    flex: none;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.toast__close:hover {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .toast {
+        animation: toast-in 120ms ease-out;
+    }
+}
+
+@keyframes toast-in {
+    from { transform: translateY(var(--space-8)); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 /* --- Queue and playlist rows --------------------------------------------- */
@@ -968,6 +1214,21 @@ h1 {
     .accounts__row {
         grid-template-columns: minmax(0, 1fr);
         gap: var(--space-8);
+    }
+
+    /* Cover above the text, or a 420px art column leaves nothing for the title. */
+    .now {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-20);
+        padding: var(--space-16);
+    }
+
+    .now__title {
+        font-size: var(--text-2xl);
+    }
+
+    .now__artist {
+        font-size: var(--text-md);
     }
 
     /* Two columns of covers on a phone rather than one: a single column turns a modest

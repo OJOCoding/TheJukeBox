@@ -5,7 +5,7 @@
 // equivalent anyway -- and once the buttons exist they are the whole feature. Dragging can be
 // added on top later without changing the model.
 
-import { alertUser, announce, clear, el, isoDuration, mmss } from '../core/ui.js';
+import { alertUser, announce, clear, el, isoDuration, mmss, notify } from '../core/ui.js';
 import { ApiError, api } from '../core/api.js';
 
 /** "1 h 12 m", or "4 m". For a whole playlist, where seconds are noise. */
@@ -50,7 +50,7 @@ export function renderPlaylists(outlet, { player, store }) {
                 const playlist = await api.createPlaylist(value);
 
                 name.value = '';
-                announce(`Playlist ${playlist.name} created.`);
+                notify(`Created the playlist ${playlist.name}.`);
 
                 await load();
             } catch (error) {
@@ -82,7 +82,9 @@ export function renderPlaylists(outlet, { player, store }) {
                     el('p', { text: 'NO PLAYLISTS YET.' }),
                     el('p', {
                         class: 'view-header__count',
-                        text: 'Name one above, then add tracks to it from the library.',
+                        text: 'Name one above. Then in the library, select a track and press '
+                            + 'ADD TO PLAYLIST — that button will also offer to make a playlist '
+                            + 'for you.',
                     })));
                 return;
             }
@@ -236,6 +238,16 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
                     }
                 },
             }),
+            // The way in from here. Adding tracks happens in the library -- that is where the
+            // tracks are -- but nothing on this screen said so, so an empty playlist was a dead
+            // end you had to guess your way out of.
+            el('a', {
+                class: 'btn btn--sm',
+                href: '/library',
+                'data-route': '/library',
+                text: 'ADD TRACKS',
+                'aria-label': `Add tracks to ${title} from the library`,
+            }),
             el('button', {
                 class: 'btn btn--sm',
                 type: 'button',
@@ -257,7 +269,7 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
                 el('p', { text: 'THIS PLAYLIST IS EMPTY.' }),
                 el('p', {
                     class: 'view-header__count',
-                    text: 'Add tracks from the library using the ADD TO PLAYLIST button.',
+                    text: 'In the library, click a track to select it, then press ADD TO PLAYLIST.',
                 }),
                 el('a', { class: 'btn', href: '/library', 'data-route': '/library', text: 'BROWSE THE LIBRARY' })));
             return;
@@ -369,7 +381,7 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
     async function removeItem(item) {
         try {
             await api.removePlaylistItem(playlistId, item.itemId);
-            announce(`${item.title} removed from ${title}.`);
+            notify(`Removed "${item.title}" from ${title}.`);
             await load();
         } catch (error) {
             alertUser(error.message);
@@ -393,7 +405,7 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
 
         try {
             await api.updatePlaylist(playlistId, { name: trimmed });
-            announce(`Renamed to ${trimmed}.`);
+            notify(`Renamed to ${trimmed}.`);
             await load();
         } catch (error) {
             alertUser(error.message);
@@ -407,7 +419,7 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
 
         try {
             await api.deletePlaylist(playlistId);
-            announce(`${title} deleted.`);
+            notify(`Deleted the playlist ${title}.`);
 
             // A full navigation is wrong here; the router owns /playlists.
             window.history.pushState({}, '', '/playlists');

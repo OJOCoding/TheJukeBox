@@ -5,7 +5,7 @@
 // element created after the user's gesture may silently refuse to play because it has no
 // gesture history of its own.
 
-import { alertUser, announce } from '../core/ui.js';
+import { alertUser, announce, notify } from '../core/ui.js';
 import { api } from '../core/api.js';
 import { createQueue } from './queue.js';
 
@@ -283,7 +283,9 @@ export function createPlayer({ audio, store }) {
             queue.append(known);
             publish({ queueChanged: true });
 
-            announce(`${known.length} track${known.length === 1 ? '' : 's'} added to the queue.`);
+            // notify, not announce: "added to the queue" is the result of a button press, and
+            // announce alone put it in a clipped region that nobody could see.
+            notify(`${known.length} track${known.length === 1 ? '' : 's'} added to the queue.`);
 
             return known.length;
         },

@@ -15,7 +15,7 @@ import { announce } from './ui.js';
  * @param {Array<{path: string, title: string, render: Function}>} options.routes
  * @param {Function} options.resolve Maps a pathname to a route, allowing auth guards.
  */
-export function createRouter({ outlet, routes, resolve }) {
+export function createRouter({ outlet, routes, resolve, onNavigated = () => {} }) {
     let current = null;
     let disposeView = null;
 
@@ -103,6 +103,10 @@ export function createRouter({ outlet, routes, resolve }) {
         // longer describes where they are.
         outlet.focus({ preventScroll: true });
         outlet.scrollTop = 0;
+
+        // After the view exists, so anything the callback shows or hides is reacting to the page
+        // the user is actually on rather than the one they were on.
+        onNavigated(pathname, route);
 
         if (announceChange) announce(route.title);
     }

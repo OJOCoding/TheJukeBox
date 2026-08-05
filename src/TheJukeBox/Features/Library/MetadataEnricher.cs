@@ -189,14 +189,17 @@ internal sealed class MetadataEnricher(
     /// actually terminates.
     /// </para>
     /// </remarks>
-    private async Task<List<Candidate>> FindCandidatesAsync(Guid userId, CancellationToken cancellationToken) =>
-        await context.Tracks
+    private IQueryable<Track> Pending(Guid userId) =>
+        context.Tracks
             .AsNoTracking()
             .Where(t => t.UserId == userId
                         && t.DeletedAtUtc == null
                         && (t.MetadataExtractedAtUtc == null
                             || t.MetadataFingerprint == null
-                            || (t.Md5Checksum != null && t.MetadataFingerprint != t.Md5Checksum)))
+                            || (t.Md5Checksum != null && t.MetadataFingerprint != t.Md5Checksum)));
+
+    private async Task<List<Candidate>> FindCandidatesAsync(Guid userId, CancellationToken cancellationToken) =>
+        await Pending(userId)
 
             // Smallest first. Files under the whole-file threshold cost one request each,
             // so an interrupted pass has finished as many tracks as possible.
@@ -208,6 +211,18 @@ internal sealed class MetadataEnricher(
                 t.MimeType,
                 t.SizeBytes))
             .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// How many tracks this pass would read.
+    /// </summary>
+    /// <remarks>
+    /// Exposed so <c>SyncEnricherHandoffTests</c> can assert what the tag pass would do next
+    /// without needing Drive and HTTP doubles, and -- more importantly -- without restating the
+    /// predicate. A restated copy is what let the reconciler and this class disagree about the
+    /// column's meaning in the first place, with no test able to see it.
+    /// </remarks>
+    internal Task<int> CountPendingAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Pending(userId).CountAsync(cancellationToken);
 
     /// <summary>
     /// Reads one file. Never throws for a per-file problem.

@@ -44,14 +44,20 @@ internal static partial class Log
     public static partial void DataPathResolved(ILogger logger, string dataPath);
 
     [LoggerMessage(
+        EventId = 1013,
+        Level = LogLevel.Information,
+        Message = "Read development configuration from {DotEnvPath}. Values there are overridden "
+                  + "by user-secrets, the launch profile and real environment variables.")]
+    public static partial void DotEnvLoaded(ILogger logger, string dotEnvPath);
+
+    [LoggerMessage(
         EventId = 1011,
         Level = LogLevel.Information,
-        Message = "OAuth redirect URIs for this instance (register these verbatim in Google Cloud Console): "
-                  + "sign-in {SignInRedirectUri}, Drive {DriveRedirectUri}")]
-    public static partial void RedirectUris(
-        ILogger logger,
-        string signInRedirectUri,
-        string driveRedirectUri);
+        Message = "Register this one OAuth redirect URI verbatim in Google Cloud Console "
+                  + "(APIs & Services > Credentials > your OAuth client > Authorised redirect "
+                  + "URIs), or sign-in fails with Google's redirect_uri_mismatch: "
+                  + "{SignInRedirectUri}")]
+    public static partial void RedirectUris(ILogger logger, string signInRedirectUri);
 
     [LoggerMessage(
         EventId = 1012,

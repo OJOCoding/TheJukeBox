@@ -10,6 +10,7 @@ import { createPlayer } from './player/controller.js';
 import { renderAdmin } from './views/admin.js';
 import { renderAlbum, renderAlbums, renderArtist, renderArtists } from './views/browse.js';
 import { renderLibrary } from './views/library.js';
+import { renderNowPlaying } from './views/now-playing.js';
 import { renderPlaylistDetail, renderPlaylists } from './views/playlists.js';
 import { renderQueue } from './views/queue.js';
 import { renderSyncProgress, renderWelcome } from './views/welcome.js';
@@ -35,6 +36,12 @@ const dom = {
     syncChip: document.getElementById('syncChip'),
     signOutButton: document.getElementById('signOutButton'),
     adminLink: document.getElementById('adminLink'),
+    profileButton: document.getElementById('profileButton'),
+    profileMenu: document.getElementById('profileMenu'),
+    profileAvatar: document.getElementById('profileAvatar'),
+    profileInitial: document.getElementById('profileInitial'),
+    profileName: document.getElementById('profileName'),
+    profileEmail: document.getElementById('profileEmail'),
 };
 
 // Fail loudly, at once, if the markup and this map have drifted apart.
@@ -71,6 +78,9 @@ const store = createStore({
     // rather than on every position tick.
     queueRevision: 0,
     queueLength: 0,
+
+    // The path currently rendered. Set by the router, read by the chrome.
+    route: window.location.pathname,
 });
 
 const player = createPlayer({ audio: dom.audio, store });
@@ -84,6 +94,7 @@ const persistence = createPersistence({ player, store });
 const routes = [
     { path: '/', title: 'Welcome', render: (outlet) => renderWelcome(outlet, { store, onSync: requestSync }) },
     { path: '/library', title: 'Library', render: (outlet) => renderLibrary(outlet, { store, player, onSync: requestSync }) },
+    { path: '/now', title: 'Now playing', render: (outlet) => renderNowPlaying(outlet, { store }) },
     { path: '/albums', title: 'Albums', render: (outlet) => renderAlbums(outlet, { store, player }) },
     {
         path: '/albums/:key',
@@ -113,6 +124,11 @@ const routes = [
 const router = createRouter({
     outlet: dom.view,
     routes,
+
+    // Recorded in the store so the chrome can react to where the user is -- the transport hides on
+    // the landing page, which is a property of the route rather than of playback.
+    onNavigated: (pathname) => store.set({ route: pathname }),
+
     resolve(pathname, route) {
         const session = store.state.session;
 
@@ -192,12 +208,25 @@ function renderChrome(state) {
     const ready = isReady(state.session);
 
     dom.topbar.hidden = !ready;
-    dom.transport.hidden = !ready;
 
-    // The admin link only exists for administrators, and is removed again if a session
-    // reload says otherwise -- a disabled administrator must not keep the link to the screen
-    // that would re-enable them.
-    dom.adminLink.hidden = !(ready && state.session?.isAdmin === true);
+    // The transport is hidden on the landing page. That page is a description of the project for
+    // someone who has not signed in or has nothing indexed yet, and a set of playback controls
+    // with nothing to control is furniture.
+    dom.transport.hidden = !ready || state.route === '/';
+
+    renderAccountMenu(state);
+
+    dom.shuffleButton.setAttribute('aria-pressed', state.mode.shuffle ? 'true' : 'false');
+
+    // Repeat-one and shuffle are mutually exclusive in effect, not just in spirit: repeat-one
+    // never advances the queue, so the play order shuffle controls is never consulted. Leaving the
+    // control live would let the user turn on a mode that visibly does nothing.
+    const repeatingOne = state.mode.repeat === 'one';
+
+    dom.shuffleButton.disabled = repeatingOne;
+    dom.shuffleButton.title = repeatingOne
+        ? 'Shuffle does nothing while repeating one track'
+        : '';
 
     const track = state.currentTrack;
 
@@ -214,8 +243,6 @@ function renderChrome(state) {
 
     dom.nextButton.disabled = !state.hasNext;
     dom.prevButton.disabled = !state.hasPrevious && state.position < 3;
-
-    dom.shuffleButton.setAttribute('aria-pressed', state.mode.shuffle ? 'true' : 'false');
 
     const repeat = state.mode.repeat;
     dom.repeatButton.dataset.state = repeat;
@@ -236,6 +263,74 @@ function renderChrome(state) {
         dom.position.textContent = mmss(state.position);
     }
 }
+
+/**
+ * Fills in the account menu from the session.
+ *
+ * The avatar is Google's, so it may fail to load or be absent entirely; the initial behind it is
+ * what the menu falls back to rather than an empty square.
+ */
+function renderAccountMenu(state) {
+    const user = state.session?.user ?? null;
+    const ready = isReady(state.session);
+
+    // The admin link only exists for administrators, and is removed again if a session reload says
+    // otherwise -- a disabled administrator must not keep the link to the screen that would
+    // re-enable them.
+    dom.adminLink.hidden = !(ready && state.session?.isAdmin === true);
+
+    const name = user?.displayName || user?.email || 'Account';
+
+    dom.profileName.textContent = name;
+    dom.profileEmail.textContent = user?.email ?? '';
+    dom.profileInitial.textContent = name.trim().charAt(0).toUpperCase() || '?';
+
+    dom.profileButton.setAttribute('aria-label', `Account: ${name}`);
+
+    if (user?.pictureUrl && dom.profileAvatar.dataset.src !== user.pictureUrl) {
+        dom.profileAvatar.dataset.src = user.pictureUrl;
+        dom.profileAvatar.hidden = false;
+        dom.profileAvatar.src = user.pictureUrl;
+
+        // Falls back to the initial rather than leaving a broken image. Google's avatar URLs
+        // expire, so this is a normal outcome rather than an edge case.
+        dom.profileAvatar.addEventListener('error', () => { dom.profileAvatar.hidden = true; }, { once: true });
+    } else if (!user?.pictureUrl) {
+        dom.profileAvatar.hidden = true;
+    }
+}
+
+/** Opens and closes the account menu, keeping aria-expanded truthful. */
+function setMenuOpen(open) {
+    dom.profileMenu.hidden = !open;
+    dom.profileButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+dom.profileButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setMenuOpen(dom.profileMenu.hidden);
+});
+
+// Closing on an outside click and on Escape are both required for a menu to feel like one, and
+// Escape additionally returns focus to the trigger so a keyboard user is not stranded.
+document.addEventListener('click', (event) => {
+    if (dom.profileMenu.hidden) return;
+    if (event.target instanceof Node && dom.profileMenu.contains(event.target)) return;
+
+    setMenuOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || dom.profileMenu.hidden) return;
+
+    setMenuOpen(false);
+    dom.profileButton.focus();
+});
+
+// Following a link inside the menu must close it, or it stays open over the view it just opened.
+dom.profileMenu.addEventListener('click', (event) => {
+    if (event.target instanceof Element && event.target.closest('a, button')) setMenuOpen(false);
+});
 
 /**
  * Shows the album art, falling back to a glyph.
