@@ -10,7 +10,7 @@
 // and no way past them. role="listbox" with a roving aria-activedescendant is one tab
 // stop, and aria-setsize/aria-posinset are designed for exactly this.
 
-import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss } from '../core/ui.js';
+import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss, notify } from '../core/ui.js';
 import { api, ApiError } from '../core/api.js';
 import { VIRTUALISE_ABOVE, createVirtualList } from '../ui/virtual-list.js';
 
@@ -42,6 +42,21 @@ export function renderLibrary(outlet, { store, player, onSync }) {
     // Acts on the selected row, which is the list's cursor. A per-row menu button was rejected:
     // it would put two more tab stops on every one of potentially thousands of rows, which is
     // exactly the problem the listbox pattern was chosen to avoid.
+    //
+    // Which row that is has to be *visible*, though. The buttons used to say "ADD TO QUEUE" with
+    // no indication of what they would add, so the only way to find out was to press one.
+    const selectedLabel = el('span', { class: 'view-header__selected', text: '' });
+
+    const playButton = el('button', {
+        class: 'btn btn--sm',
+        type: 'button',
+        text: 'PLAY',
+        onclick: () => {
+            if (tracks[selected]) activate(selected);
+            else alertUser('Select a track first.');
+        },
+    });
+
     const queueButton = el('button', {
         class: 'btn btn--sm',
         type: 'button',
@@ -54,6 +69,8 @@ export function renderLibrary(outlet, { store, player, onSync }) {
                 return;
             }
 
+            // One track, and it does not disturb what is playing. Contrast activate(), which
+            // replaces the queue with the whole view.
             player.enqueue([track.id]);
         },
     });
@@ -65,6 +82,20 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         onclick: () => addSelectedToPlaylist(),
     });
 
+    const playAllButton = el('button', {
+        class: 'btn btn--sm',
+        type: 'button',
+        text: 'PLAY ALL',
+        onclick: () => {
+            if (tracks.length === 0) {
+                alertUser('There is nothing here to play.');
+                return;
+            }
+
+            player.playAll(tracks.map((track) => track.id), { startAt: Math.max(selected, 0) });
+        },
+    });
+
     outlet.append(
         el(
             'div',
@@ -74,7 +105,9 @@ export function renderLibrary(outlet, { store, player, onSync }) {
             el('form', { class: 'field', role: 'search', onsubmit: (e) => e.preventDefault() },
                 el('span', { class: 'field__prompt', 'aria-hidden': 'true', text: '>' }),
                 search),
-            el('div', { class: 'view-header__actions' }, queueButton, playlistButton),
+            el('div', { class: 'view-header__actions' },
+                playButton, queueButton, playlistButton, playAllButton),
+            selectedLabel,
         ),
         body,
     );
@@ -82,9 +115,12 @@ export function renderLibrary(outlet, { store, player, onSync }) {
     /**
      * Adds the selected track to a playlist the user picks.
      *
-     * The picker is a `<select>` in a native prompt-like flow rather than a custom dialog,
-     * because this app has no dialog primitive and a hand-rolled one is a focus trap, an escape
-     * handler and a scroll lock away from being correct.
+     * A native prompt rather than a custom dialog, because this app has no dialog primitive and a
+     * hand-rolled one is a focus trap, an escape handler and a scroll lock away from being correct.
+     *
+     * Creating a playlist is offered from inside the same flow. Without it, someone with no
+     * playlists yet was told to go to another screen, make one, come back and find their track
+     * again -- four steps to do the thing they had already asked for.
      */
     async function addSelectedToPlaylist() {
         const track = tracks[selected];
@@ -103,36 +139,69 @@ export function renderLibrary(outlet, { store, player, onSync }) {
             return;
         }
 
-        if (playlists.length === 0) {
-            alertUser('Create a playlist first, on the playlists screen.');
-            return;
-        }
+        const target = playlists.length === 0
+            ? await createPlaylistFor(track)
+            : await choosePlaylistFor(track, playlists);
 
-        // Numbered, so the answer is short to type. Names are echoed as plain text in a native
-        // dialog, which cannot interpret markup.
-        const menu = playlists.map((p, index) => `${index + 1}. ${p.name}`).join('\n');
-        const answer = window.prompt(`Add "${track.title}" to which playlist?\n\n${menu}`, '1');
-
-        if (answer === null) return;
-
-        const choice = Number.parseInt(answer.trim(), 10);
-
-        if (!Number.isInteger(choice) || choice < 1 || choice > playlists.length) {
-            alertUser('That is not one of the listed playlists.');
-            return;
-        }
-
-        const target = playlists[choice - 1];
+        if (!target) return;
 
         try {
             const result = await api.addToPlaylist(target.id, [track.id]);
 
-            announce(result.added === 1
-                ? `${track.title} added to ${target.name}.`
-                : `${track.title} could not be added to ${target.name}.`);
+            if (result.added === 1) notify(`Added "${track.title}" to ${target.name}.`);
+            else alertUser(`"${track.title}" could not be added to ${target.name}.`);
         } catch (error) {
             alertUser(error.message);
         }
+    }
+
+    /** Offers to make a first playlist, returning it, or null if the user backed out. */
+    async function createPlaylistFor(track) {
+        const name = window.prompt(
+            `You have no playlists yet.\n\nName one, and "${track.title}" will be added to it:`,
+            'Favourites');
+
+        if (name === null) return null;
+
+        const trimmed = name.trim();
+
+        if (trimmed.length === 0) {
+            alertUser('A playlist needs a name.');
+            return null;
+        }
+
+        try {
+            const created = await api.createPlaylist(trimmed);
+
+            notify(`Created the playlist ${created.name}.`);
+
+            return created;
+        } catch (error) {
+            alertUser(error.message);
+            return null;
+        }
+    }
+
+    /** Numbered prompt, with 0 to make a new playlist. */
+    async function choosePlaylistFor(track, playlists) {
+        const menu = playlists.map((p, index) => `${index + 1}. ${p.name}`).join('\n');
+
+        const answer = window.prompt(
+            `Add "${track.title}" to which playlist?\n\n${menu}\n\n0. New playlist…`,
+            '1');
+
+        if (answer === null) return null;
+
+        const choice = Number.parseInt(answer.trim(), 10);
+
+        if (choice === 0) return createPlaylistFor(track);
+
+        if (!Number.isInteger(choice) || choice < 1 || choice > playlists.length) {
+            alertUser(`"${answer.trim()}" is not one of the listed playlists.`);
+            return null;
+        }
+
+        return playlists[choice - 1];
     }
 
     /** @type {Array<object>} the rows currently rendered, in display order. */
@@ -225,6 +294,8 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
     /** Applies selection and now-playing state without rebuilding rows. */
     function paintStates() {
+        paintSelection();
+
         const playingId = store.state.currentTrackId;
 
         for (const row of list.children) {
@@ -249,6 +320,22 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         } else {
             list.removeAttribute('aria-activedescendant');
         }
+    }
+
+    /** Keeps the header's "acting on this" label in step with the cursor. */
+    function paintSelection() {
+        const track = tracks[selected];
+
+        selectedLabel.textContent = track
+            ? `SELECTED: ${track.title}${track.artist ? ` — ${track.artist}` : ''}`
+            : tracks.length > 0 ? 'SELECT A TRACK' : '';
+
+        const none = !track;
+
+        playButton.disabled = none;
+        queueButton.disabled = none;
+        playlistButton.disabled = none;
+        playAllButton.disabled = tracks.length === 0;
     }
 
     function focusIndex(next) {
@@ -277,17 +364,38 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
     // Delegated: one listener for the whole list rather than a handler per row, which is
     // what the previous inline onclick attributes amounted to.
+    //
+    // A single click *selects*; playing takes a double-click or Enter. That split exists because
+    // playing a track queues the rest of the view behind it, so when click also played, there was
+    // no way to point at a track without replacing the queue -- "add one song to the queue" put
+    // the whole library in it, because selecting the song had already done that. Select-then-act is
+    // also the standard behaviour for a listbox, which this is.
     list.addEventListener('click', (event) => {
-        const row = event.target.closest('.list-row');
-        if (!row) return;
+        const index = indexOfRow(event.target);
+
+        if (index !== null) focusIndex(index);
+    });
+
+    list.addEventListener('dblclick', (event) => {
+        const index = indexOfRow(event.target);
+
+        if (index !== null) {
+            focusIndex(index);
+            activate(index);
+        }
+    });
+
+    /** The track index a click landed on, or null. */
+    function indexOfRow(target) {
+        const row = target instanceof Element ? target.closest('.list-row') : null;
+
+        if (!row) return null;
 
         // From the element, not its sibling position: under virtualisation those differ.
         const index = Number(row.dataset.index);
-        if (!Number.isInteger(index)) return;
 
-        focusIndex(index);
-        activate(index);
-    });
+        return Number.isInteger(index) ? index : null;
+    }
 
     list.addEventListener('keydown', (event) => {
         // Page size from the scroll viewport, not the list. The list element is now as tall

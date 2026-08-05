@@ -17,6 +17,21 @@ using TheJukeBox.Infrastructure.Security;
 var builder = WebApplication.CreateBuilder(args);
 
 // --------------------------------------------------------------------------
+// .env, in development only
+// --------------------------------------------------------------------------
+// The file docker compose reads, made to work for `dotnet run` too. Without this, credentials
+// filled into .env are invisible to a local run and the app reports itself unconfigured while
+// the values sit in a file it never opened. Registered at the lowest precedence, so the launch
+// profile still pins App:PublicBaseUrl to localhost -- .env's value is a deployment's public
+// URL, which is exactly wrong for a local run.
+string? dotEnvPath = null;
+
+if (builder.Environment.IsDevelopment())
+{
+    dotEnvPath = builder.Configuration.AddRepositoryDotEnv(builder.Environment.ContentRootPath);
+}
+
+// --------------------------------------------------------------------------
 // Configuration
 // --------------------------------------------------------------------------
 // ValidateOnStart moves "you forgot to configure this" from a 500 on the first
@@ -230,6 +245,11 @@ app.MapFallbackToFile("index.html").AllowAnonymous();
 
 try
 {
+    if (dotEnvPath is not null)
+    {
+        Log.DotEnvLoaded(app.Logger, dotEnvPath);
+    }
+
     LogStartupFacts(app);
     app.Run();
 }
@@ -263,5 +283,5 @@ static void LogStartupFacts(WebApplication application)
     var dataPath = application.Services.GetRequiredService<JukeBoxPaths>().DataPath;
 
     Log.DataPathResolved(application.Logger, dataPath);
-    Log.RedirectUris(application.Logger, appOptions.SignInRedirectUri, appOptions.DriveRedirectUri);
+    Log.RedirectUris(application.Logger, appOptions.SignInRedirectUri);
 }

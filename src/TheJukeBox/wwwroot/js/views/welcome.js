@@ -27,6 +27,27 @@ export function renderWelcome(outlet, { store, onSync }) {
         el('div', { class: 'status' }, statusDot, statusText),
         el('h1', { text: 'JUKEBOX SYSTEM' }),
         el('p', { class: 'tagline', text: 'GOOGLE DRIVE AUDIO PLAYBACK INTERFACE' }),
+
+        // A description, because "GOOGLE DRIVE AUDIO PLAYBACK INTERFACE" tells you the category
+        // and nothing about the idea. Deliberately plain-spoken next to the shouty monospace.
+        el('div', { class: 'blurb' },
+            el('p', {
+                text: 'You already own a pile of music. It is sitting in Google Drive in folders '
+                    + 'with names like "new stuff (2)", and the only way to play it is to '
+                    + 'download it again.',
+            }),
+            el('p', {
+                text: 'This turns that pile into a record collection. It reads the tags inside '
+                    + 'your files — artist, album, the cover art nobody knew was in there — and '
+                    + 'gives you a library you can search, albums you can browse, playlists, a '
+                    + 'queue, and a resume point that survives closing the tab.',
+            }),
+            el('p', {
+                text: 'Nothing is copied anywhere. Your files stay in your Drive, read-only, and '
+                    + 'the audio is streamed straight through. Self-hosted, single binary, one '
+                    + 'SQLite file.',
+            })),
+
         el('div', { class: 'buttons' }, ...actions()),
     );
 

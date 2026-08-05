@@ -352,18 +352,26 @@ internal sealed class LibrarySynchroniser(
     /// </summary>
     private static bool Apply(Track track, DriveAudioFile file, string? folderName)
     {
-        // Identifies the bytes the metadata was read from. md5 when Drive gives one,
-        // otherwise modified-time plus size, which is good enough to detect a real edit
-        // while ignoring a pure rename.
-        var fingerprint = file.Md5Checksum
-                          ?? $"{file.ModifiedAtUtc:O}|{file.SizeBytes}";
+        // Identifies the bytes the *tag pass* read. Computed here only to notice that they have
+        // changed; the value itself is written by MetadataEnricher and never by this method.
+        // Shared with TrackFingerprint rather than recomputed, because two copies of the formula
+        // are two things to keep in step.
+        var fingerprint = TrackFingerprint.For(file.Md5Checksum, file.ModifiedAtUtc, file.SizeBytes);
 
         var extension = AudioFormats.ResolveExtension(file.Name, file.MimeType);
 
-        var metadataStale = track.MetadataSource == MetadataSource.None
-                            || !string.Equals(track.MetadataFingerprint, fingerprint, StringComparison.Ordinal)
-                            || !string.Equals(track.Name, file.Name, StringComparison.Ordinal)
-                            || !string.Equals(track.ParentFolderName, folderName, StringComparison.Ordinal);
+        // The bytes changed underneath metadata the tag pass had already examined, so whatever it
+        // read is stale and the file has to go back to it.
+        var contentChanged = track.MetadataExtractedAtUtc is not null
+                             && track.MetadataFingerprint is not null
+                             && !string.Equals(track.MetadataFingerprint, fingerprint, StringComparison.Ordinal);
+
+        // A filename guess is derived from the file name and its folder, so only those can make it
+        // stale. It deliberately does not consider the fingerprint: this pass never reads bytes, so
+        // a content change tells it nothing new about what the name says.
+        var guessStale = track.MetadataSource == MetadataSource.None
+                         || !string.Equals(track.Name, file.Name, StringComparison.Ordinal)
+                         || !string.Equals(track.ParentFolderName, folderName, StringComparison.Ordinal);
 
         var changed = track.Name != file.Name
                       || track.MimeType != file.MimeType
@@ -375,7 +383,8 @@ internal sealed class LibrarySynchroniser(
                       || track.DriveModifiedAtUtc != file.ModifiedAtUtc
                       || track.FileExtension != extension
                       || track.DeletedAtUtc is not null
-                      || metadataStale;
+                      || guessStale
+                      || contentChanged;
 
         if (!changed)
         {
@@ -396,7 +405,16 @@ internal sealed class LibrarySynchroniser(
         // A file reappearing after being trashed is un-deleted rather than duplicated.
         track.DeletedAtUtc = null;
 
-        if (metadataStale && track.MetadataSource != MetadataSource.Tags)
+        if (contentChanged)
+        {
+            // Hand the file back to the tag pass. Clearing the timestamp is the whole mechanism:
+            // it is the column the enricher selects on, and "null" is how this pass says "these
+            // bytes have never been examined". The old values are left in place so the row keeps
+            // showing a real title until the new read replaces it.
+            track.MetadataExtractedAtUtc = null;
+        }
+
+        if (guessStale && track.MetadataSource != MetadataSource.Tags)
         {
             // Tag-derived metadata is never overwritten by a filename guess. B1 sets
             // MetadataSource.Tags, and a rename must not undo it.
@@ -408,8 +426,13 @@ internal sealed class LibrarySynchroniser(
             track.TrackNumber = guessed.TrackNumber;
             track.Year = guessed.Year;
             track.MetadataSource = MetadataSource.Filename;
-            track.MetadataFingerprint = fingerprint;
-            track.MetadataExtractedAtUtc = DateTimeOffset.UtcNow;
+
+            // MetadataFingerprint and MetadataExtractedAtUtc are deliberately NOT set here. They
+            // mean "the tag pass has examined these bytes", and this pass has not: it has only
+            // read the file's name. Setting them was a real bug -- it made every freshly synced
+            // track look already-examined, so the tag pass found nothing to do and no library ever
+            // got a duration or a cover image. See MetadataEnricher.Pending and
+            // SyncEnricherHandoffTests.
         }
 
         track.SearchText = BuildSearchText(track);

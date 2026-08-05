@@ -32,9 +32,16 @@ public sealed class AppOptions
     /// </summary>
     public bool TrustForwardedHeadersFromAnyProxy { get; init; }
 
-    /// <summary>The OAuth redirect URI for sign-in, derived from PublicBaseUrl.</summary>
+    /// <summary>
+    /// The OAuth redirect URI, derived from PublicBaseUrl. There is exactly one.
+    /// </summary>
+    /// <remarks>
+    /// A second URI, <c>/api/auth/drive/callback</c>, used to be derived here and reported at
+    /// startup as something to register. Nothing ever routed it: identity and Drive are requested
+    /// in a single consent screen, so one callback serves both. It was a leftover from a design
+    /// where granting Drive was a separate step, and the only thing it achieved was telling
+    /// self-hosters to register a URI that could never be reached -- extra work during setup, at
+    /// the exact step where a wrong URI produces Google's opaque <c>redirect_uri_mismatch</c>.
+    /// </remarks>
     public string SignInRedirectUri => $"{PublicBaseUrl.TrimEnd('/')}/api/auth/callback";
-
-    /// <summary>The OAuth redirect URI for the Drive grant, derived from PublicBaseUrl.</summary>
-    public string DriveRedirectUri => $"{PublicBaseUrl.TrimEnd('/')}/api/auth/drive/callback";
 }

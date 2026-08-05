@@ -50,14 +50,34 @@ public class GoogleOAuthOptionsTests
         Assert.True(With("YOURCLIENTID.APPS.GOOGLEUSERCONTENT.COM").LooksLikePlaceholder);
 
     [Fact]
-    public void The_redirect_uris_are_derived_from_the_public_base_url()
+    public void The_redirect_uri_is_derived_from_the_public_base_url()
     {
-        // Checked here because these two strings are what a self-hoster must paste into Cloud
-        // Console verbatim, and a mismatch is the other cause of an opaque Google error.
+        // Checked here because this string is what a self-hoster must paste into Cloud Console
+        // verbatim, and a mismatch is the other cause of an opaque Google error.
         var options = new AppOptions { PublicBaseUrl = "https://music.example.com" };
 
         Assert.Equal("https://music.example.com/api/auth/callback", options.SignInRedirectUri);
-        Assert.Equal("https://music.example.com/api/auth/drive/callback", options.DriveRedirectUri);
+    }
+
+    /// <summary>
+    /// There is exactly one redirect URI, and it must match the Google handler's CallbackPath.
+    /// </summary>
+    /// <remarks>
+    /// A second URI, <c>/api/auth/drive/callback</c>, used to be derived and reported at startup as
+    /// something to register. Nothing routed it -- identity and Drive share one consent screen --
+    /// so it was setup work that could never pay off, at the step where a wrong URI produces
+    /// Google's opaque redirect_uri_mismatch.
+    /// </remarks>
+    [Fact]
+    public void There_is_only_one_redirect_uri()
+    {
+        var properties = typeof(AppOptions)
+            .GetProperties()
+            .Where(p => p.Name.Contains("RedirectUri", StringComparison.Ordinal))
+            .Select(p => p.Name)
+            .ToArray();
+
+        Assert.Equal([nameof(AppOptions.SignInRedirectUri)], properties);
     }
 
     [Fact]

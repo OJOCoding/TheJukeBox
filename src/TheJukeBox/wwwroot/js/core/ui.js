@@ -93,14 +93,99 @@ export function announce(message) {
     if (!region) return;
 
     region.textContent = '';
-    requestAnimationFrame(() => { region.textContent = message; });
+
+    // setTimeout, not requestAnimationFrame. Both give the region a tick to notice the change,
+    // but rAF is paused in a backgrounded tab -- which for a music player is a normal state, and
+    // the moment a track change most needs announcing.
+    setTimeout(() => { region.textContent = message; }, 0);
 }
 
-/** Announces assertively. For errors only; it interrupts whatever is being read. */
+/**
+ * Confirms something the user did: politely announced, and visibly shown.
+ *
+ * `announce` alone is the right call for narration nobody asked for -- a route change, sync
+ * progress. It is the wrong call for the result of a button press, because the only feedback for
+ * "added to playlist" was then a message in a clipped one-pixel region, which is indistinguishable
+ * from the button having done nothing.
+ */
+export function notify(message) {
+    announce(message);
+    showToast(message);
+}
+
+/**
+ * Reports a problem: assertively to assistive technology, and visibly to everyone else.
+ *
+ * The visible half was missing, and its absence was the single most misleading thing in the app.
+ * The live region is `sr-only` -- one clipped pixel -- so every error the app produced was
+ * announced to a screen reader and shown to nobody. "Select a track first", "Create a playlist
+ * first", "Could not load the library": all of it went into a void, and the app looked like it
+ * silently ignored the click. Features that worked correctly were reported as broken because the
+ * only thing that would have explained them was invisible.
+ *
+ * The live region is still the accessibility mechanism; the toast is purely visual and marked
+ * aria-hidden, so the message is announced once rather than twice.
+ */
 export function alertUser(message) {
     const region = alerts();
-    if (!region) return;
 
-    region.textContent = '';
-    requestAnimationFrame(() => { region.textContent = message; });
+    if (region) {
+        region.textContent = '';
+        setTimeout(() => { region.textContent = message; }, 0);
+    }
+
+    showToast(message);
+}
+
+/** How long a toast stays before fading, in milliseconds. */
+const TOAST_MS = 6000;
+
+let toastTimer = null;
+
+/**
+ * Shows the visible half of an alert.
+ *
+ * Appended to a container created on demand rather than declared in index.html, so nothing has to
+ * be added to the startup dom-map contract for a purely decorative element. Messages are text, set
+ * with textContent: an error can carry a server-supplied string, and this app renders no markup
+ * from data anywhere.
+ */
+function showToast(message) {
+    let host = document.getElementById('toasts');
+
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'toasts';
+        host.className = 'toasts';
+
+        // Hidden from assistive technology: the #alerts live region already announced this, and
+        // duplicating it here would read every error twice.
+        host.setAttribute('aria-hidden', 'true');
+
+        document.body.append(host);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'toast__close';
+    dismiss.textContent = '✕';
+
+    // Dismissible, because a long message that covers the control you were about to press is
+    // worse than no message. Also tabbable-free: aria-hidden means a keyboard user cannot reach
+    // it, so it must never be the only way to proceed -- it is not, it only hides text.
+    dismiss.addEventListener('click', () => toast.remove());
+
+    toast.append(dismiss);
+    host.append(toast);
+
+    // Only the most recent few are kept. A failing background poll could otherwise stack toasts
+    // until they covered the page.
+    while (host.children.length > 3) host.firstElementChild?.remove();
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => host.replaceChildren(), TOAST_MS);
 }

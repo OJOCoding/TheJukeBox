@@ -35,26 +35,55 @@
     <div id="alerts" class="sr-only" role="alert"></div>
 
     <header class="topbar" id="topbar" hidden>
-        <span class="topbar__brand">JUKEBOX</span>
+        <!-- The brand is a link to what is playing. A logo that goes somewhere is the
+             convention, and "somewhere" for a music player is the thing it is doing. -->
+        <a class="topbar__brand" href="/now" data-route="/now">JUKEBOX</a>
 
         <nav class="topbar__nav" aria-label="Views">
+            <a class="navlink" href="/now" data-route="/now">NOW PLAYING</a>
             <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
             <a class="navlink" href="/albums" data-route="/albums">ALBUMS</a>
             <a class="navlink" href="/artists" data-route="/artists">ARTISTS</a>
             <a class="navlink" href="/playlists" data-route="/playlists">PLAYLISTS</a>
             <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
-
-            <!-- Shown only to administrators. Hidden here rather than absent, because
-                 main.js asserts every id in its dom map exists at startup. -->
-            <a class="navlink" href="/admin" data-route="/admin" id="adminLink" hidden>ACCOUNTS</a>
         </nav>
 
         <span class="topbar__spacer"></span>
 
         <span class="topbar__status" id="syncChip" hidden></span>
 
-        <button class="btn btn--sm" id="syncButton" type="button">SYNC</button>
-        <button class="btn btn--sm" id="signOutButton" type="button">SIGN OUT</button>
+        <!--
+          An icon, not a labelled button. Sync is something you reach for rarely -- the library
+          refreshes itself every fifteen minutes -- so it does not deserve the width a word
+          costs in a nav that now has six entries. aria-label carries the name it lost.
+        -->
+        <button class="icon-btn" id="syncButton" type="button" aria-label="Sync your Drive library now">
+            <span aria-hidden="true">&#10227;</span>
+        </button>
+
+        <!--
+          The account menu. Accounts and Sign out are both rare, both about "you" rather than
+          about the music, and both were previously competing with the views for nav space.
+        -->
+        <div class="menu">
+            <button class="menu__trigger" id="profileButton" type="button"
+                    aria-haspopup="true" aria-expanded="false" aria-controls="profileMenu">
+                <img class="menu__avatar" id="profileAvatar" alt="" width="28" height="28" hidden>
+                <span class="menu__initial" id="profileInitial" aria-hidden="true"></span>
+                <span class="sr-only" id="profileName">Account</span>
+                <span class="menu__caret" aria-hidden="true">&#9662;</span>
+            </button>
+
+            <div class="menu__panel" id="profileMenu" role="menu" hidden>
+                <span class="menu__email" id="profileEmail"></span>
+
+                <!-- Shown only to administrators. Hidden here rather than absent, because
+                     main.js asserts every id in its dom map exists at startup. -->
+                <a class="menu__item" href="/admin" data-route="/admin" id="adminLink" role="menuitem" hidden>ACCOUNTS</a>
+
+                <button class="menu__item" id="signOutButton" type="button" role="menuitem">SIGN OUT</button>
+            </div>
+        </div>
     </header>
 
     <!-- tabindex allows the router to move focus here after a view change, so a
