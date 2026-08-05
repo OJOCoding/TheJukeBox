@@ -17,6 +17,24 @@
     box-sizing: border-box;
 }
 
+/*
+  Makes the `hidden` attribute actually hide things.
+
+  The browser's own `[hidden] { display: none }` lives in the user-agent stylesheet, so *any*
+  author `display` rule outranks it -- author styles beat UA styles regardless of specificity. This
+  application sets `hidden` from JavaScript to show and hide the top bar, the transport and the
+  account menu, and all three carry an author `display` (flex, grid, flex). So none of them ever
+  hid: the transport showed on the landing page, the account menu was permanently open, and the
+  nav and sync button appeared to a signed-out visitor.
+
+  One line, and it has to be `!important` to beat those component rules. Placed here rather than
+  next to each component so the next element given a `hidden` attribute inherits the fix instead of
+  rediscovering the bug.
+*/
+[hidden] {
+    display: none !important;
+}
+
 /* --- Document ------------------------------------------------------------- */
 body {
     font-family: var(--font-mono);
