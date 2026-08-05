@@ -16,26 +16,70 @@ namespace TheJukeBox.Infrastructure.Metadata;
 /// </remarks>
 internal sealed class DriveAccessToken(IDriveClientFactory factory, Guid userId)
 {
-    private string? _token;
+    /// <summary>
+    /// The in-flight or completed fetch, shared by every concurrent caller.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A cached <see cref="Task{TResult}"/> rather than a cached string, so that callers arriving
+    /// while a fetch is running await that fetch instead of starting another.
+    /// </para>
+    /// <para>
+    /// The previous version cached only the string and let concurrent callers race, reasoning that
+    /// a couple of redundant refresh exchanges cost nothing. That reasoning missed what a refresh
+    /// actually does: <see cref="IDriveClientFactory.GetAccessTokenAsync"/> reads the stored refresh
+    /// token through the request's <c>DbContext</c>, which is not thread-safe. So the races were not
+    /// harmless duplicate HTTP calls -- they were concurrent operations on one EF context, and EF
+    /// threw "a second operation was started on this context instance".
+    /// </para>
+    /// <para>
+    /// The symptom was precise and easy to misread: a tag pass over 42 files failed on exactly
+    /// four of them, which is the metadata pass's degree of parallelism. Those four were the
+    /// workers that started together before any token existed; every file after them found the
+    /// token cached and succeeded. Four tracks silently lost their tags and cover art per library.
+    /// </para>
+    /// </remarks>
+    private Task<string>? _inFlight;
 
-    public async Task<string> GetAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Guards <see cref="_inFlight"/>. A plain lock, not a semaphore: nothing is awaited inside it,
+    /// so it needs no async support and the class owns nothing disposable (CA1001).
+    /// </summary>
+    private readonly object _gate = new();
+
+    public Task<string> GetAsync(CancellationToken cancellationToken)
     {
-        if (_token is { Length: > 0 } cached)
+        lock (_gate)
         {
-            return cached;
+            // Assigned inside the lock, and the task is started but not awaited here, so every
+            // concurrent caller leaves with the same task and exactly one refresh happens.
+            return _inFlight ??= FetchAsync(cancellationToken);
         }
-
-        // Deliberately unguarded. A semaphore here would make the class own a disposable
-        // field (CA1001) and require disposal plumbing through the whole pass, to prevent
-        // an outcome that costs nothing: several parallel extractions starting at once may
-        // each perform a refresh exchange, so the run does one or two extra token calls
-        // instead of exactly one. Refresh is idempotent, and the point of caching was to
-        // avoid thousands of round trips, not to reach precisely one.
-        return _token = await factory.GetAccessTokenAsync(userId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Discards the held token, so the next request obtains a fresh one.</summary>
-    public void Invalidate() => _token = null;
+    public void Invalidate()
+    {
+        lock (_gate)
+        {
+            _inFlight = null;
+        }
+    }
+
+    private async Task<string> FetchAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await factory.GetAccessTokenAsync(userId, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // A failed task must not be cached, or one transient failure would be replayed to
+            // every subsequent caller for the rest of the pass.
+            Invalidate();
+            throw;
+        }
+    }
 }
 
 /// <summary>

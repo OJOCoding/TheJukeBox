@@ -207,12 +207,16 @@ store.subscribe(renderChrome);
 function renderChrome(state) {
     const ready = isReady(state.session);
 
-    dom.topbar.hidden = !ready;
+    // The landing page carries none of the app's chrome. It is a description of the project for
+    // someone who has not signed in or has nothing indexed yet, so a nav, an account menu, a sync
+    // button and a set of playback controls are all furniture with nothing behind them.
+    const landing = state.route === '/';
 
-    // The transport is hidden on the landing page. That page is a description of the project for
-    // someone who has not signed in or has nothing indexed yet, and a set of playback controls
-    // with nothing to control is furniture.
-    dom.transport.hidden = !ready || state.route === '/';
+    dom.topbar.hidden = !ready || landing;
+    dom.transport.hidden = !ready || landing;
+
+    // A menu left open across a navigation would reappear over the new view.
+    if (landing) setMenuOpen(false);
 
     renderAccountMenu(state);
 

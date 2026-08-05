@@ -35,18 +35,24 @@
     <div id="alerts" class="sr-only" role="alert"></div>
 
     <header class="topbar" id="topbar" hidden>
-        <!-- The brand is a link to what is playing. A logo that goes somewhere is the
-             convention, and "somewhere" for a music player is the thing it is doing. -->
-        <a class="topbar__brand" href="/now" data-route="/now">JUKEBOX</a>
+        <!--
+          The brand and the nav are one column, so NOW PLAYING sits directly under the logo
+          rather than beside it. The brand is a link to what is playing -- a logo that goes
+          somewhere is the convention, and "somewhere" for a music player is the thing it is
+          doing -- but it is styled as a brand, not as body-copy link.
+        -->
+        <div class="topbar__identity">
+            <a class="topbar__brand" href="/now" data-route="/now">JUKEBOX</a>
 
-        <nav class="topbar__nav" aria-label="Views">
-            <a class="navlink" href="/now" data-route="/now">NOW PLAYING</a>
-            <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
-            <a class="navlink" href="/albums" data-route="/albums">ALBUMS</a>
-            <a class="navlink" href="/artists" data-route="/artists">ARTISTS</a>
-            <a class="navlink" href="/playlists" data-route="/playlists">PLAYLISTS</a>
-            <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
-        </nav>
+            <nav class="topbar__nav" aria-label="Views">
+                <a class="navlink" href="/now" data-route="/now">NOW PLAYING</a>
+                <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
+                <a class="navlink" href="/albums" data-route="/albums">ALBUMS</a>
+                <a class="navlink" href="/artists" data-route="/artists">ARTISTS</a>
+                <a class="navlink" href="/playlists" data-route="/playlists">PLAYLISTS</a>
+                <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
+            </nav>
+        </div>
 
         <span class="topbar__spacer"></span>
 
@@ -58,7 +64,20 @@
           costs in a nav that now has six entries. aria-label carries the name it lost.
         -->
         <button class="icon-btn" id="syncButton" type="button" aria-label="Sync your Drive library now">
-            <span aria-hidden="true">&#10227;</span>
+            <!--
+              Two arrows chasing each other round a circle: the refresh-a-relationship idiom, not
+              the reload-this-page one. Inline SVG rather than a glyph, because the single-arrow
+              U+27F3 that was here reads as a browser reload button, and no font is guaranteed to
+              have the two-arrow character at all.
+            -->
+            <svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 11a8 8 0 0 0-13.6-4.6L3 9" />
+                <polyline points="3 4 3 9 8 9" />
+                <path d="M4 13a8 8 0 0 0 13.6 4.6L21 15" />
+                <polyline points="21 20 21 15 16 15" />
+            </svg>
         </button>
 
         <!--

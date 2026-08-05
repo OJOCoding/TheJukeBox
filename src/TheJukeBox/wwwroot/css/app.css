@@ -76,10 +76,33 @@ body {
     flex-wrap: wrap;
 }
 
+/* The brand and the nav stack, so NOW PLAYING sits under the logo. */
+.topbar__identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    min-inline-size: 0;
+}
+
+/*
+  A brand, not a link. It became an anchor so it could go to Now Playing, and inherited the
+  user-agent's default link styling with it: blue and underlined, which is wrong for a wordmark
+  and looked like an accident.
+*/
 .topbar__brand {
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
+    font-size: var(--text-lg);
+    color: var(--color-ink);
+    text-decoration: none;
+}
+
+.topbar__brand:hover,
+.topbar__brand:focus-visible {
+    /* Underline on hover only, so it is still discoverable as a link without looking like one. */
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .topbar__nav {
@@ -624,6 +647,242 @@ h1 {
     font-size: var(--text-sm);
     line-height: var(--leading-base);
     color: var(--color-ink-secondary);
+}
+
+/* --- Account menu --------------------------------------------------------- */
+.menu {
+    position: relative;
+}
+
+.menu__trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8);
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+    cursor: pointer;
+}
+
+.menu__trigger:hover {
+    background: var(--color-row-hover);
+}
+
+.menu__avatar {
+    display: block;
+    inline-size: 28px;
+    block-size: 28px;
+    object-fit: cover;
+}
+
+/* Behind the avatar, and the whole affordance when Google supplies no picture or its URL has
+   expired -- which it does, routinely. */
+.menu__initial {
+    display: grid;
+    place-items: center;
+    inline-size: 28px;
+    block-size: 28px;
+    background: var(--color-ink);
+    color: var(--color-surface);
+    font-weight: var(--weight-bold);
+}
+
+.menu__avatar:not([hidden]) + .menu__initial {
+    display: none;
+}
+
+.menu__caret {
+    font-size: var(--text-xs);
+}
+
+.menu__panel {
+    position: absolute;
+    inset-block-start: calc(100% + var(--space-8));
+    inset-inline-end: 0;
+    z-index: 40;
+
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 196px;
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-raised);
+}
+
+.menu__email {
+    padding: var(--space-12);
+    border-block-end: var(--border-hairline) solid var(--color-ink);
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.menu__item {
+    padding: var(--space-12);
+    border: none;
+    background: none;
+    color: var(--color-ink);
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.menu__item:hover {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
+/* --- Modal dialogs -------------------------------------------------------- */
+/* Replaces window.prompt, which is not available in every browser context -- it threw, and the
+   feature that depended on it silently did nothing. */
+.dialog {
+    padding: 0;
+    border: var(--border-heavy) solid var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-raised);
+    max-inline-size: min(480px, calc(100vw - 2 * var(--space-20)));
+}
+
+.dialog::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.dialog__form {
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog__title {
+    margin: 0;
+    padding: var(--space-16) var(--space-20);
+    border-block-end: var(--border-medium) solid var(--color-ink);
+    font-size: var(--text-md);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.dialog__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-20);
+}
+
+.dialog__message {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-base);
+}
+
+.dialog__input {
+    inline-size: 100%;
+    padding: var(--space-12);
+    border: var(--border-medium) solid var(--color-ink);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font: inherit;
+}
+
+/* One button per choice, stacked, so picking a playlist is a click rather than typing the number
+   printed next to its name. */
+.dialog__choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    max-block-size: 40vh;
+    overflow-y: auto;
+}
+
+.dialog__choices .btn {
+    text-align: start;
+}
+
+.dialog__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-8);
+    padding: var(--space-16) var(--space-20);
+    border-block-start: var(--border-hairline) solid var(--color-ink);
+}
+
+/* --- Now playing ---------------------------------------------------------- */
+.now {
+    display: grid;
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-32);
+    padding: var(--space-32) var(--space-20);
+}
+
+.now__art {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    inline-size: 100%;
+    border: var(--border-heavy) solid var(--color-ink);
+    background: var(--color-recess);
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+}
+
+.now__art img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+}
+
+.now__glyph {
+    font-size: var(--text-6xl);
+    color: var(--color-ink-tertiary);
+}
+
+.now__meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    min-inline-size: 0;
+}
+
+.now__title {
+    margin: 0;
+    font-size: var(--text-4xl);
+    line-height: 1.15;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+
+    /* Long titles wrap rather than overflow: this is the one view with room for them. */
+    overflow-wrap: anywhere;
+}
+
+.now__artist {
+    margin: 0;
+    font-size: var(--text-xl);
+}
+
+.now__album,
+.now__facts {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-ink-tertiary);
+}
+
+.now__facts {
+    font-variant-numeric: tabular-nums;
+}
+
+.now__actions {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    margin-block-start: var(--space-8);
 }
 
 /* --- Toasts --------------------------------------------------------------- */
@@ -1229,6 +1488,21 @@ h1 {
 
     .now__artist {
         font-size: var(--text-md);
+    }
+
+    /* The cover stacks above the text: a 360px art column leaves nothing for a title. */
+    .now {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--space-20);
+        padding: var(--space-16);
+    }
+
+    .now__title {
+        font-size: var(--text-3xl);
+    }
+
+    .now__artist {
+        font-size: var(--text-lg);
     }
 
     /* Two columns of covers on a phone rather than one: a single column turns a modest
