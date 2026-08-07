@@ -56,29 +56,37 @@ users click through via **Advanced → Go to (app name)**.
 **APIs & Services → Credentials → Create credentials → OAuth client ID.**
 
 - **Application type: Web application.**
-- Under **Authorised redirect URIs**, add both of these, replacing the host with your own
-  and keeping the paths exactly as written:
+- Under **Authorised redirect URIs**, add exactly one, replacing the host with your own and
+  keeping the path exactly as written:
 
   ```
   https://music.example.com/api/auth/callback
-  https://music.example.com/api/auth/drive/callback
   ```
 
-  For local development:
+  For local development over HTTPS:
 
   ```
   https://localhost:7077/api/auth/callback
-  https://localhost:7077/api/auth/drive/callback
   ```
 
-TheJukeBox logs the two URIs it will actually use at startup, at Information level, so you
-can copy them verbatim:
+  Or over plain HTTP, which Google permits for `localhost`:
+
+  ```
+  http://localhost:5255/api/auth/callback
+  ```
+
+There is only one. Identity and Drive are requested together in a single consent screen, so a
+single callback serves both — earlier versions of this guide also listed
+`/api/auth/drive/callback`, which nothing ever routed.
+
+TheJukeBox logs the URI it will actually use at startup, at Information level, so you can copy
+it verbatim:
 
 ```
 info: TheJukeBox[1011]
-      OAuth redirect URIs for this instance (register these verbatim in Google Cloud
-      Console): sign-in https://music.example.com/api/auth/callback, Drive
-      https://music.example.com/api/auth/drive/callback
+      Register this one OAuth redirect URI verbatim in Google Cloud Console (APIs & Services >
+      Credentials > your OAuth client > Authorised redirect URIs), or sign-in fails with
+      Google's redirect_uri_mismatch: https://music.example.com/api/auth/callback
 ```
 
 Copy the client ID and client secret.
@@ -250,6 +258,45 @@ another administrator, since doing it yourself would lock you out with no way ba
 `SingleUser` is the mode to pick if you are exposing an instance publicly but only want it for
 yourself. It is closer to safe-by-default than a reverse-proxy password, and it tells the person
 plainly that they will not be approved rather than leaving them waiting.
+
+### Filling in what your files do not carry
+
+Optional, off by default. Set `METADATA_ONLINE=true` and a contact address, and a third sync pass
+matches tracks against [MusicBrainz](https://musicbrainz.org) and pulls artwork from the
+[Cover Art Archive](https://coverartarchive.org):
+
+```
+METADATA_ONLINE=true
+METADATA_ONLINE_CONTACT=you@example.com
+```
+
+Why it is off by default: a lookup sends a track's title and artist to a third party. That is a
+small disclosure and a reasonable one to want, but if you host this for other people you would be
+making it on their behalf.
+
+The contact address is required, not decorative. MusicBrainz's terms ask for an application name
+and a contact in the User-Agent and they block clients that omit one, so enabling lookups without
+it is refused at startup. Requests are rate limited to one per second across the whole process, as
+their terms require, which means a pass runs at roughly one track per second and stops after 200 —
+the rest are picked up by the next sync.
+
+**It only ever fills blanks.** Tags are what you chose; a match is a guess. A track that already
+has an artist keeps it, a track that already has a cover keeps it, and a track whose metadata came
+from tags stays labelled that way.
+
+**It would rather find nothing than find the wrong thing.** A candidate is accepted only if the
+service scores it at least 90, the title corresponds, the artist corresponds when your file names
+one, and — the real test — the duration is within eight seconds. That last rule is what
+distinguishes a recording from its covers, live takes and remasters, and it is deliberately strict:
+a missing cover reads as "not found yet", while a wrong cover reads as a broken application and
+nobody goes looking for the setting that caused it.
+
+In practice this means short clips and covers are correctly left alone. A 68-second guitar cover of
+Stairway to Heaven is not Led Zeppelin's eight-minute recording, and it does not get their artwork.
+
+Tracks that find no match are remembered and not retried for a month, so a pass does not spend its
+whole rate budget re-asking questions that already came back empty. A pass that is interrupted
+because the service is overloaded records nothing and resumes next time.
 
 ### Before you expose an instance
 

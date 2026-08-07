@@ -11,6 +11,7 @@ using TheJukeBox.Features.Playlists;
 using TheJukeBox.Features.Streaming;
 using TheJukeBox.Infrastructure.Drive;
 using TheJukeBox.Infrastructure.Metadata;
+using TheJukeBox.Infrastructure.Metadata.Online;
 using TheJukeBox.Infrastructure.Persistence;
 using TheJukeBox.Infrastructure.Security;
 
@@ -128,6 +129,30 @@ builder.Services.AddScoped<PlaylistService>();
 // extraction pipeline is testable without real audio files.
 builder.Services.AddSingleton<ITagReader, AtlTagReader>();
 builder.Services.AddScoped<MetadataEnricher>();
+
+// Online lookups, for what the files themselves did not carry. Off unless the operator turns them
+// on: a lookup sends a track's title and artist to a third party.
+builder.Services.AddOptions<OnlineMetadataOptions>()
+    .BindConfiguration(OnlineMetadataOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        online => !online.Enabled || !string.IsNullOrWhiteSpace(online.ContactEmail),
+        "Metadata:Online:ContactEmail is required when online lookups are enabled. MusicBrainz's "
+        + "terms require a contact address in the User-Agent, and they block clients without one.")
+    .ValidateOnStart();
+
+// A singleton, and it has to be: the rate limit is one request per second from this process, not
+// per user or per request. Two people syncing at once must still share the one budget.
+builder.Services.AddSingleton<MusicBrainzRateLimiter>();
+
+builder.Services.AddHttpClient<IMusicBrainzClient, MusicBrainzClient>(client =>
+{
+    // Bounded, unlike the streaming client. A metadata lookup that hangs would stall a pass that
+    // is already deliberately slow, and there is nothing to be gained by waiting.
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
+builder.Services.AddScoped<OnlineMetadataEnricher>();
 builder.Services.AddSingleton<SyncDispatcher>();
 builder.Services.AddSingleton<ISyncDispatcher>(provider => provider.GetRequiredService<SyncDispatcher>());
 builder.Services.AddHostedService<SyncWorker>();

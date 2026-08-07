@@ -132,6 +132,14 @@ internal sealed class SyncWorker(
                 // Succeeded, and handing the enricher that row would have it reopen and
                 // rewrite progress fields for a run that is finished.
                 await enricher.EnrichAsync(userId, cancellationToken: stoppingToken);
+
+                // Pass three: ask an online database about what the files did not say. Last,
+                // because it is the slowest by a wide margin -- one request per second, by the
+                // service's terms -- and because it only wants to know what the first two passes
+                // failed to establish. It returns immediately when the operator has not enabled it.
+                var online = scope.ServiceProvider.GetRequiredService<OnlineMetadataEnricher>();
+
+                await online.EnrichAsync(userId, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

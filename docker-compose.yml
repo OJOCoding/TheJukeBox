@@ -38,6 +38,14 @@ services:
       # Cloud project's 100 unverified-app user slots.
       Auth__Registration: ${AUTH_REGISTRATION:-AdminApproval}
 
+      # Look up metadata this instance could not find inside the files themselves: cover art
+      # above all, and artist/album/year for files with no tags. Off unless you turn it on --
+      # a lookup sends a track's title and artist to MusicBrainz, and that is your decision to
+      # make, not this application's. A contact address is required when enabled: their terms
+      # ask for one in the User-Agent and they block clients that omit it.
+      Metadata__Online__Enabled: ${METADATA_ONLINE:-false}
+      Metadata__Online__ContactEmail: ${METADATA_ONLINE_CONTACT:-}
+
     volumes:
       # The SQLite database, the Data Protection key ring, and pre-migration backups.
       #
