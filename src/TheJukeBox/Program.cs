@@ -218,6 +218,9 @@ var app = builder.Build();
 // is silently dropped -- sign-in appears to work and then does nothing.
 app.UseForwardedHeaders(AuthenticationSetup.CreateForwardedHeadersOptions(appOptions));
 
+// Before the exception handler, so an error response carries the same policy as a successful one.
+app.UseJukeBoxSecurityHeaders(app.Environment.IsDevelopment());
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
