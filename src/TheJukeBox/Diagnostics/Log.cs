@@ -275,6 +275,53 @@ internal static partial class Log
     public static partial void MetadataFileFailed(ILogger logger, string fileName, Exception exception);
 
     [LoggerMessage(
+        EventId = 1060,
+        Level = LogLevel.Information,
+        Message = "Online metadata pass starting for {UserId}: {Candidates} track(s) to look up. "
+                  + "Rate limited to one request per second.")]
+    public static partial void OnlinePassStarted(ILogger logger, Guid userId, int candidates);
+
+    [LoggerMessage(
+        EventId = 1061,
+        Level = LogLevel.Information,
+        Message = "Online metadata pass for {UserId} finished: {Examined} examined, {Matched} matched, "
+                  + "{ArtStored} cover image(s) stored, {Filled} track(s) had a gap filled.")]
+    public static partial void OnlinePassCompleted(
+        ILogger logger,
+        Guid userId,
+        int examined,
+        int matched,
+        int artStored,
+        int filled);
+
+    [LoggerMessage(
+        EventId = 1062,
+        Level = LogLevel.Debug,
+        Message = "No confident online match for {Title}: {Reason}.")]
+    public static partial void OnlineNoMatch(ILogger logger, string title, string reason);
+
+    [LoggerMessage(
+        EventId = 1065,
+        Level = LogLevel.Information,
+        Message = "Online metadata pass for {UserId} stopped early after {Examined} track(s): the "
+                  + "service is not answering. The remaining tracks keep their place in the queue "
+                  + "and are tried on the next sync.")]
+    public static partial void OnlinePassInterrupted(ILogger logger, Guid userId, int examined);
+
+    [LoggerMessage(
+        EventId = 1063,
+        Level = LogLevel.Warning,
+        Message = "The online metadata service answered {StatusCode}. Lookups are skipped for now; "
+                  + "the library is unaffected.")]
+    public static partial void OnlineLookupUnavailable(ILogger logger, int statusCode);
+
+    [LoggerMessage(
+        EventId = 1064,
+        Level = LogLevel.Warning,
+        Message = "An online metadata lookup failed. The library is unaffected.")]
+    public static partial void OnlineLookupFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
         EventId = 1040,
         Level = LogLevel.Information,
         Message = "Database is up to date at {DatabaseFile}; no migrations pending.")]

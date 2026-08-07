@@ -26,6 +26,9 @@ deliberately monochrome "technical blueprint" style.
   when Drive is slow. After the first full listing it refreshes from Drive's change feed,
   which is a single request when nothing has moved — that is what makes a 15-minute timer
   affordable rather than abusive.
+- **Fills in what your files do not carry.** Optional, off by default: matches untagged tracks
+  against MusicBrainz to recover cover art, artist, album and year. It only ever fills blanks —
+  what your tags say is never overwritten.
 - **Browse by album and artist.** A grid of your cover art, and an artist page with their
   records. Albums group by album artist so compilations stay whole; artists group by track
   artist so the people on a compilation still appear.
@@ -120,6 +123,8 @@ Every setting can be supplied as a configuration key or as an environment variab
 | `Sync:AutoSyncEnabled` | `Sync__AutoSyncEnabled` | no | Default `true` |
 | `Sync:IntervalMinutes` | `Sync__IntervalMinutes` | no | Default `15` |
 | `Auth:Registration` | `Auth__Registration` | no | `AdminApproval` (default), `Open`, or `SingleUser` |
+| `Metadata:Online:Enabled` | `Metadata__Online__Enabled` | no | Default `false`; fills gaps from MusicBrainz |
+| `Metadata:Online:ContactEmail` | `Metadata__Online__ContactEmail` | when enabled | Sent in the User-Agent, as their terms require |
 
 Everything mutable lives in one directory (`/data`): the SQLite database, the Data
 Protection key ring, and pre-migration backups. **Back it up as a unit.** Losing the key
@@ -189,9 +194,6 @@ exist:
   still create a pending account and consume a row, they just cannot reach anything. An invite
   token would stop the account being created at all.
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
-
-Tag extraction has unit-tested plumbing but has not yet been exercised against a corpus of
-real tagged audio files.
 
 ## Architecture
 

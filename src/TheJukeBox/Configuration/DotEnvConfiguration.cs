@@ -49,6 +49,8 @@ internal static class DotEnvConfiguration
         ("APP_PUBLIC_BASE_URL", "App:PublicBaseUrl"),
         ("APP_TRUST_PROXY", "App:TrustForwardedHeadersFromAnyProxy"),
         ("AUTH_REGISTRATION", "Auth:Registration"),
+        ("METADATA_ONLINE", "Metadata:Online:Enabled"),
+        ("METADATA_ONLINE_CONTACT", "Metadata:Online:ContactEmail"),
     ];
 
     /// <summary>A bound on the file read, so a stray huge file cannot be slurped into memory.</summary>

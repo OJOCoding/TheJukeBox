@@ -335,9 +335,15 @@ namespace TheJukeBox.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("MusicBrainzRecordingId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OnlineLookupAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ParentFolderId")

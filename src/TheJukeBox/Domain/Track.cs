@@ -92,6 +92,28 @@ public sealed class Track
     /// <summary>Content hash of the embedded cover image, set in B1.</summary>
     public string? ArtSha256 { get; set; }
 
+    // --- Online lookup, for what the file itself did not carry. ---
+
+    /// <summary>
+    /// When an online lookup was last attempted, successful or not.
+    /// </summary>
+    /// <remarks>
+    /// Records the attempt rather than the outcome, because the failures are what need
+    /// remembering. Without this, every sync re-queries every unmatched track at one request per
+    /// second, forever.
+    /// </remarks>
+    public DateTimeOffset? OnlineLookupAtUtc { get; set; }
+
+    /// <summary>
+    /// The MusicBrainz recording this track was matched to, if any.
+    /// </summary>
+    /// <remarks>
+    /// Kept so a wrong match can be recognised and explained rather than guessed at, and so a
+    /// future feature can ask MusicBrainz for more about a track without matching it again. Null
+    /// after a lookup that found nothing confident enough.
+    /// </remarks>
+    public string? MusicBrainzRecordingId { get; set; }
+
     /// <summary>
     /// Lowercased, accent-folded haystack for substring search.
     /// </summary>
@@ -155,4 +177,14 @@ public enum MetadataSource
 
     /// <summary>Read from tags embedded in the file itself.</summary>
     Tags = 2,
+
+    /// <summary>
+    /// Matched against an online database because the file carried no usable tags.
+    /// </summary>
+    /// <remarks>
+    /// Ranked above <see cref="Filename"/> and below <see cref="Tags"/>, which is exactly how much
+    /// it should be trusted: better than parsing "03 - track.mp3", but still a guess about someone
+    /// else's file, and never allowed to overwrite what the file itself declared.
+    /// </remarks>
+    Online = 3,
 }
