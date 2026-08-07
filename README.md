@@ -7,10 +7,9 @@ to a browser.
 Built with ASP.NET Core on .NET 10 and a dependency-free vanilla-JavaScript frontend, in a
 deliberately monochrome "technical blueprint" style.
 
-> **Status: work in progress.** The backend is complete and tested; the frontend has a
-> working library and playback. Several features are not built yet — see
-> [What is not built yet](#what-is-not-built-yet). Read that section before deploying
-> this for anyone but yourself.
+> **Status: usable.** Sign-in, library sync, tag and artwork extraction, search, album and
+> artist browsing, playlists, a visible queue and a server-side resume point all work. A short
+> list of deliberate omissions is in [Limitations](#limitations).
 
 ## How it works
 
@@ -98,7 +97,7 @@ the dev-certificate prompt. To trust the dev certificate instead:
 dotnet test
 ```
 
-165 tests. This also runs the frontend's JavaScript tests through a bridge, using Node's
+452 tests. This also runs the frontend's JavaScript tests through a bridge, using Node's
 built-in test runner — there is no `package.json` and nothing to install. If Node is
 absent they are reported as skipped in the test output. To run them directly:
 
@@ -179,21 +178,17 @@ approval is authenticated but receives `403` from everything except `/api/sessio
 In Development an OpenAPI document is at `/openapi/v1.json` with a browsable reference at
 `/scalar/v1`.
 
-## What is not built yet
+## Limitations
 
-Being explicit, because the previous version of this file described features that did not
-exist:
+Deliberate omissions, stated so nobody has to discover them:
 
 - **Drag-and-drop reordering.** Playlists reorder with move-up/move-down buttons, which work
-  by keyboard and touch. Dragging can be added on top without changing the model.
+  by keyboard and touch. Dragging would be additive and needs no change to the model.
 - **Offline playback.** The app shell is cached and installable, so it loads offline, but
   audio itself is not stored for offline listening.
-- **Anti-forgery enforcement.** Configured but not enforced; `SameSite=Lax` cookies block
-  cross-site POST in the meantime.
-- **Invite links.** Registration is controlled by approval, not by invitation: a stranger can
-  still create a pending account and consume a row, they just cannot reach anything. An invite
-  token would stop the account being created at all.
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
+- **Queue and playlist lists are not windowed.** The library is, above 500 tracks. A playlist
+  of a few thousand entries would render every row.
 
 ## Architecture
 
@@ -220,7 +215,21 @@ applied at startup after a `VACUUM INTO` backup.
 - No CORS policy at all — the frontend is same-origin, so cross-origin access is never
   needed.
 - OAuth uses the framework handler, which supplies `state` and PKCE.
-- Requests are denied by default: an endpoint must opt out of authentication explicitly.
+- Requests are denied by default: an endpoint must opt out of authentication explicitly, and
+  the default policy requires an *approved* account, not merely a signed-in one.
+- New accounts need approval by default, so reaching the sign-in page is not the same as
+  getting in. Approving or disabling someone takes effect on their next request, because the
+  session cookie is revalidated against the database rather than trusted for its lifetime.
+- Every response carries a content security policy with `script-src 'self'` and
+  `frame-ancestors 'none'`. There is one script, loaded as a module from this origin, and no
+  inline handlers — so the strict form costs nothing.
+- Nothing renders markup from data. Every value that reaches the DOM is set as text, including
+  file names, tags and anything an online lookup returned.
+- Cover art is served with a MIME type sniffed from its own bytes and `nosniff`, never with a
+  type a tag or a third party claimed.
+- State-changing requests are all POST, PUT, PATCH or DELETE, and the session cookie is
+  `SameSite=Lax`, which browsers do not send on a cross-site request of those methods. There
+  are no state-changing `GET` endpoints, which is what makes that sufficient.
 
 Found something? Open an issue. Please do not include tokens or database files.
 

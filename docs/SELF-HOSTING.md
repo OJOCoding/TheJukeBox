@@ -152,7 +152,7 @@ docker compose up -d
 docker compose logs -f
 ```
 
-You should see the resolved data path, the two redirect URIs, and `Now listening on`.
+You should see the resolved data path, the redirect URI, and `Now listening on`.
 
 ### Put TLS in front
 
@@ -182,9 +182,10 @@ name, which is why a LAN instance without TLS still works.
    tags in a second pass. You do not have to wait for it to finish — a **Start listening**
    button appears as soon as anything is playable.
 
-The first account to sign in becomes the administrator. Anyone with a Google account can
-currently sign in and get their own library, so if your instance is on the public internet
-and you do not want that, keep it behind your proxy's own authentication for now.
+The first account to sign in becomes the administrator, and is approved automatically —
+nobody else could approve it. Everyone after that lands on a "waiting for approval" screen
+until you let them in from **ACCOUNTS**, unless you have changed `AUTH_REGISTRATION`. See
+[Who is allowed to have an account](#who-is-allowed-to-have-an-account).
 
 ---
 
