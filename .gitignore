@@ -383,7 +383,7 @@ FodyWeavers.xsd
 *.db-shm
 /cache/
 
-# Claude Code local tooling and machine-specific launch config
+# Local editor/agent tooling and machine-specific launch config
 .claude/
 
 # Real deployment secrets. .env.example is the committed template.
