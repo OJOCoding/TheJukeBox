@@ -20,10 +20,11 @@
 // Offline playback, when it arrives, will store whole files as blobs in IndexedDB and
 // resolve them in the app rather than here, so 206 never enters the picture.
 
-// Bumped whenever PRECACHE changes: the install handler only re-runs addAll for a cache name
-// it has not seen, so leaving the version alone would keep serving the old shell to everyone
-// who already has the worker installed.
-const VERSION = 'v5';
+// Bumped whenever any precached file changes -- not only when the PRECACHE list does. The
+// install handler re-runs addAll only for a cache name it has not seen, so leaving the version
+// alone serves the old bytes of an unchanged filename. Stale-while-revalidate does eventually
+// pick the new ones up, but a full reload behind, which reads as "my fix did not deploy".
+const VERSION = 'v6';
 
 const SHELL_CACHE = `jb-shell-${VERSION}`;
 const ART_CACHE = `jb-art-${VERSION}`;
