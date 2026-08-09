@@ -15,19 +15,56 @@
 
 /* The three-row grid is what keeps the transport pinned while only #view
    scrolls. The previous player nested a scrolling playlist inside a scrolling
-   page, so the wrong thing moved under the wheel. */
+   page, so the wrong thing moved under the wheel.
+
+   The height has to be *definite*, not a minimum. With `min-height: 100dvh` the
+   grid container still sizes to its content, so the 1fr row grew to fit a
+   42-track list, the document scrolled instead of the row, and the transport
+   sat below the fold -- you had to scroll to the bottom of the library to stop
+   the music. `block-size` pins the container to the viewport, which is what
+   makes 1fr a real constraint and #view's own overflow do the scrolling. */
 body {
     display: grid;
     grid-template-rows: auto 1fr auto;
-    min-height: 100dvh;
+    block-size: 100dvh;
+}
+
+/* And the clipping has to be declared here, on the root element.
+   `overflow` on <body> is *propagated to the viewport* and body is left
+   `visible`, so setting it there would not clip body's own content. Setting it
+   on <html> stops the propagation and applies to the viewport directly, which
+   is the document scrollbar we no longer want. */
+html {
+    block-size: 100dvh;
+    overflow: hidden;
 }
 
 #view {
+    /* Placed explicitly rather than auto-placed, because the top bar and the
+       transport are both `hidden` while signed out. Auto-placement would then
+       drop #view into row 1 -- the `auto` one -- leaving it content-height with
+       an empty 1fr row below it, so the welcome panel could not centre and a
+       tall view had nothing to scroll inside. */
+    grid-row: 2;
+
     /* min-height: 0 is required, not decorative: a grid item defaults to
        min-content, which would let a long list push the transport off-screen
        instead of scrolling inside its own row. */
     min-height: 0;
     overflow-y: auto;
+
+    /* Keeps a wheel that reaches the end of the list from chaining outwards,
+       which on a trackpad shows up as the whole page rubber-banding. */
+    overscroll-behavior: contain;
+
+    /* Reserves the scrollbar's width whether or not it is showing, so switching
+       from a short view to a long one does not shift the layout sideways. */
+    scrollbar-gutter: stable;
+
+    /* Keeps scrollIntoView from parking a row underneath the sticky .view-header.
+       The virtual list reads this same computed value for its own scrolling, so
+       the two paths cannot disagree about where the top of the list is. */
+    scroll-padding-block-start: var(--view-headroom);
 }
 
 /* --- Accessibility utilities --------------------------------------------- */
@@ -66,22 +103,20 @@ body {
 }
 
 /* --- Top bar -------------------------------------------------------------- */
+/* One row: wordmark, views, then the account controls pushed right.
+
+   The vertical padding is deliberately tighter than a content region's. This bar
+   is fixed furniture -- every pixel it takes is taken permanently, from the only
+   part of the window that scrolls. */
 .topbar {
+    grid-row: 1;
     display: flex;
     align-items: center;
     gap: var(--space-16);
-    padding: var(--space-12) var(--space-20);
+    padding: var(--space-8) var(--space-20);
     background: var(--color-recess);
     border-bottom: var(--border-heavy) solid var(--color-ink);
     flex-wrap: wrap;
-}
-
-/* The brand and the nav stack, so NOW PLAYING sits under the logo. */
-.topbar__identity {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-    min-inline-size: 0;
 }
 
 /*
@@ -96,6 +131,14 @@ body {
     font-size: var(--text-lg);
     color: var(--color-ink);
     text-decoration: none;
+
+    /* Never the thing that gives way when the bar runs out of room -- a wordmark
+       that ellipsises is worse than a nav that wraps. */
+    flex: 0 0 auto;
+
+    /* Sitting on the same line as the views, the wordmark needs more air than the
+       links need from each other, or it reads as a sixth tab. */
+    margin-inline-end: var(--space-8);
 }
 
 .topbar__brand:hover,
@@ -286,11 +329,24 @@ h1 {
 }
 
 /* --- Library view -------------------------------------------------------- */
+/* Sticky to the top of #view, so the search field and the buttons that act on
+   the selection stay put while the list scrolls under them. Controls that
+   operate on the current selection are useless if finding the selection is what
+   scrolls them away.
+
+   The opaque background is load-bearing, not decoration: the default is
+   transparent, and rows would be legible through the header as they passed
+   underneath it. */
 .view-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    background: var(--color-surface);
+
     display: flex;
     align-items: center;
     gap: var(--space-16);
-    padding: var(--space-20);
+    padding: var(--space-16) var(--space-20);
     border-bottom: var(--border-medium) solid var(--color-ink);
     flex-wrap: wrap;
 }
@@ -1128,6 +1184,7 @@ h1 {
 
 /* --- Transport ----------------------------------------------------------- */
 .transport {
+    grid-row: 3;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:

@@ -119,6 +119,18 @@
     /* Track row height. Read by the virtual list's positioning arithmetic as well as by the
        stylesheet, so the two cannot disagree. Comfortably clears the 44px WCAG 2.5.8 target. */
     --row-h: 56px;
+    /* How much of #view's top edge the sticky .view-header covers, used as the scroll
+       region's top padding so a row scrolled to the top lands below the header rather than
+       underneath it.
+
+       An approximation, and deliberately biased high: the header's real height depends on
+       which view is mounted and whether its controls have wrapped, and CSS cannot measure
+       that. Overshooting scrolls a few pixels further than necessary, which nobody notices.
+       Undershooting hides the row the user just selected, which is the whole bug.
+
+       So this is sized to the tallest header, which is the library's: it carries a second line
+       naming the selected track that the other views do not have. */
+    --view-headroom: 7.5rem;
     --scrollbar-width: 8px;
     --album-art-size: 100px;
     --audio-control-height: 50px;

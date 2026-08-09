@@ -36,26 +36,27 @@
 
     <header class="topbar" id="topbar" hidden>
         <!--
-          The brand and the nav are one column, so NOW PLAYING sits directly under the logo
-          rather than beside it. The brand is a link to what is playing -- a logo that goes
-          somewhere is the convention, and "somewhere" for a music player is the thing it is
-          doing -- but it is styled as a brand, not as body-copy link.
-        -->
-        <div class="topbar__identity">
-            <a class="topbar__brand" href="/now" data-route="/now">JUKEBOX</a>
+          The brand sits on the same line as the views. It used to stack above them, which
+          bought nothing and cost the height of a whole row on every screen -- height taken
+          from the only region that scrolls.
 
-            <!--
-              No NOW PLAYING entry: the wordmark directly above it goes to the same place, and two
-              controls side by side leading to one view is just a wider nav.
-            -->
-            <nav class="topbar__nav" aria-label="Views">
-                <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
-                <a class="navlink" href="/albums" data-route="/albums">ALBUMS</a>
-                <a class="navlink" href="/artists" data-route="/artists">ARTISTS</a>
-                <a class="navlink" href="/playlists" data-route="/playlists">PLAYLISTS</a>
-                <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
-            </nav>
-        </div>
+          The brand is a link to what is playing: a logo that goes somewhere is the
+          convention, and "somewhere" for a music player is the thing it is doing. It is
+          styled as a wordmark, not as a body-copy link.
+        -->
+        <a class="topbar__brand" href="/now" data-route="/now">JUKEBOX</a>
+
+        <!--
+          No NOW PLAYING entry: the wordmark to its left goes to the same place, and two
+          controls side by side leading to one view is just a wider nav.
+        -->
+        <nav class="topbar__nav" aria-label="Views">
+            <a class="navlink" href="/library" data-route="/library">LIBRARY</a>
+            <a class="navlink" href="/albums" data-route="/albums">ALBUMS</a>
+            <a class="navlink" href="/artists" data-route="/artists">ARTISTS</a>
+            <a class="navlink" href="/playlists" data-route="/playlists">PLAYLISTS</a>
+            <a class="navlink" href="/queue" data-route="/queue">QUEUE</a>
+        </nav>
 
         <span class="topbar__spacer"></span>
 
