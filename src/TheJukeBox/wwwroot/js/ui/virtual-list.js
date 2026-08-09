@@ -73,6 +73,22 @@ export function createVirtualList({ container, scrollParent, rowHeight, renderRo
     }
 
     /**
+     * How much of the scroll region's top edge is covered by sticky chrome.
+     *
+     * Read from the scroll parent's own scroll-padding rather than passed in, because that is
+     * the declaration the browser already applies to scrollIntoView. Taking the number from
+     * the same place means the windowed list and the plain one cannot disagree about where the
+     * top of the visible area is -- and a change to the stylesheet does not need a matching
+     * change here to stay correct.
+     */
+    function headroom() {
+        const declared = getComputedStyle(scrollParent).scrollPaddingBlockStart;
+
+        // `auto` parses to NaN, which is the correct answer expressed unhelpfully.
+        return Number.parseFloat(declared) || 0;
+    }
+
+    /**
      * Renders the window for the current scroll position.
      *
      * @param force an index that must be present regardless of scroll, so keyboard
@@ -168,8 +184,12 @@ export function createVirtualList({ container, scrollParent, rowHeight, renderRo
         /** Ensures an index is rendered and visible, then returns its element. */
         reveal(index) {
             const top = index * rowHeight;
-            const viewTop = offsetIntoList();
-            const viewBottom = viewTop + scrollParent.clientHeight;
+            const offset = offsetIntoList();
+
+            // The usable top edge is below the sticky header, not at the scroll region's own
+            // top. Without this, revealing a row upwards puts it exactly where the header is.
+            const viewTop = offset + headroom();
+            const viewBottom = offset + scrollParent.clientHeight;
 
             // Adjusted relatively rather than assigned absolutely, for the same reason
             // offsetIntoList avoids offsetTop: a relative delta needs no assumption about
