@@ -1658,10 +1658,54 @@ h1 {
         justify-content: center;
     }
 
-    /* The seek row carries three things on a phone. The volume slider is the one that can
-       afford to shrink: it has a mute button beside it and hardware buttons behind that. */
+    /* The slider goes on a phone; the mute button stays.
+       Sharing the seek row squeezed the seek bar to 111px on a 375px screen, and scrubbing a
+       four-minute track through 111px is the control people actually use suffering for the one
+       they do not: a phone has hardware volume buttons for the same output. This is the same
+       reasoning that hides the whole thing on iOS, applied to a smaller screen rather than to a
+       browser that refuses the assignment. */
     .range--volume {
-        inline-size: 4rem;
+        display: none;
+    }
+}
+
+/* --- The top bar on a phone ----------------------------------------------
+   Five word-labelled views, a wordmark and two account controls do not fit on one 375px
+   row, and wrapping in source order gave three: the wordmark alone on one, the views on
+   two lines, and the sync and account buttons alone on a third. 198px of permanent
+   furniture, taken from the only region that scrolls.
+
+   The views move to their own line *below* the account controls, which lets the wordmark
+   share a row with them and gets it down to two. That means visual order departs from DOM
+   order here -- the one place in this application where it does -- so a keyboard user tabs
+   brand, views, sync, account while seeing the views last.
+
+   Taken deliberately, and confined to widths where a keyboard is rare: the order is still
+   coherent (identity, navigation, account tools), the views are a <nav> landmark that
+   assistive technology reaches directly rather than by tabbing, and the alternative was to
+   make the same trade on desktop instead, which is where tabbing actually happens. */
+@media (max-width: 768px) {
+    .topbar {
+        row-gap: var(--space-8);
+        column-gap: var(--space-12);
+    }
+
+    .topbar__nav {
+        order: 1;
+
+        /* Forces the line break. Everything at the default order fills the first line,
+           and the views take the second on their own. */
+        flex-basis: 100%;
+        gap: var(--space-8) var(--space-8);
+    }
+
+    .topbar__brand {
+        margin-inline-end: 0;
+    }
+
+    .navlink {
+        padding: var(--space-8) var(--space-10);
+        font-size: var(--text-xs);
     }
 }
 
