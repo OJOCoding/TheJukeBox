@@ -167,6 +167,89 @@ export function askForText({ title, message, value = '', placeholder = '', confi
     });
 }
 
+/**
+ * The keyboard shortcuts, as a reference card.
+ *
+ * These have all worked since B2 and nothing said so. `aria-keyshortcuts` on the play button
+ * told assistive technology and nobody else, which is the wrong way round for a feature whose
+ * whole value is that you do not have to reach for the mouse.
+ *
+ * Grouped by what they act on, because "Space pauses" and "Home jumps to the first track" are
+ * answers to different questions -- one is about the player, the other about the list you are
+ * standing in.
+ */
+const SHORTCUTS = [
+    {
+        group: 'PLAYBACK',
+        keys: [
+            ['Space', 'Play or pause'],
+            ['→', 'Next track'],
+            ['←', 'Previous track, or restart this one'],
+            ['S', 'Shuffle on or off'],
+            ['R', 'Cycle repeat: off, all, one'],
+            ['M', 'Mute or unmute'],
+        ],
+    },
+    {
+        group: 'THE TRACK LIST',
+        keys: [
+            ['↑ ↓', 'Move the cursor'],
+            ['Page Up / Page Down', 'Move by a screenful'],
+            ['Home / End', 'First or last track'],
+            ['Enter', 'Play the track under the cursor'],
+            ['A–Z', 'Jump to the next title starting with what you type'],
+        ],
+    },
+    {
+        group: 'EVERYWHERE',
+        keys: [
+            ['?', 'This list'],
+            ['Esc', 'Close a dialog or the account menu'],
+            ['Tab', 'Move between controls'],
+        ],
+    },
+];
+
+/**
+ * Shows the shortcut reference. Resolves when it is dismissed.
+ *
+ * Guarded against opening twice: `?` is a keypress, keys repeat when held, and `showModal` on
+ * an already-open dialog throws.
+ */
+let shortcutsOpen = false;
+
+export async function showShortcuts() {
+    if (shortcutsOpen) return;
+
+    shortcutsOpen = true;
+
+    try {
+        await open((close) => ({
+            title: 'KEYBOARD SHORTCUTS',
+            body: [
+                el('p', {
+                    class: 'dialog__message',
+                    text: 'Shortcuts are ignored while you are typing in a field or moving '
+                        + 'through the track list, so they never eat a keystroke you meant for '
+                        + 'something else.',
+                }),
+                ...SHORTCUTS.map((section) => el('div', { class: 'shortcuts__group' },
+                    el('h3', { class: 'shortcuts__heading', text: section.group }),
+                    el('dl', { class: 'shortcuts' },
+                        ...section.keys.flatMap(([key, description]) => [
+                            el('dt', {}, el('kbd', { class: 'kbd', text: key })),
+                            el('dd', { text: description }),
+                        ])))),
+            ],
+            footer: [
+                el('button', { class: 'btn btn--sm', type: 'button', text: 'CLOSE', onclick: () => close(null) }),
+            ],
+        }));
+    } finally {
+        shortcutsOpen = false;
+    }
+}
+
 /** Asks a yes/no question. Resolves true only on an explicit yes. */
 export function askToConfirm({ title, message, confirmLabel = 'CONFIRM' }) {
     return open((close) => ({

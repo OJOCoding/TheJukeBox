@@ -9,6 +9,56 @@ import { alertUser, announce, notify } from '../core/ui.js';
 import { api } from '../core/api.js';
 import { createQueue } from './queue.js';
 
+/** Where the volume and mute state are remembered between visits. */
+const VOLUME_KEY = 'jukebox.volume';
+const MUTED_KEY = 'jukebox.muted';
+
+/**
+ * Whether this browser lets script set the output level.
+ *
+ * iOS Safari makes `volume` read-only: the assignment is silently ignored, because Apple's
+ * position is that the hardware buttons are the volume control. Offering a slider that does
+ * nothing is worse than offering none, so this is tested rather than assumed, by writing a
+ * different value and reading it back.
+ */
+function volumeIsSettable(audio) {
+    const before = audio.volume;
+    const probe = before === 0.5 ? 0.4 : 0.5;
+
+    try {
+        audio.volume = probe;
+
+        const settable = Math.abs(audio.volume - probe) < 0.001;
+
+        audio.volume = before;
+
+        return settable;
+    } catch {
+        // Some engines throw rather than ignore. Same conclusion.
+        return false;
+    }
+}
+
+function storedNumber(key, fallback) {
+    try {
+        const value = Number.parseFloat(window.localStorage.getItem(key) ?? '');
+
+        // Validated, not trusted: localStorage is user-writable, and NaN assigned to
+        // audio.volume throws a TypeError that would take the player down at boot.
+        return Number.isFinite(value) && value >= 0 && value <= 1 ? value : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function remember(key, value) {
+    try {
+        window.localStorage.setItem(key, String(value));
+    } catch {
+        // Blocked storage costs the setting between visits and nothing else.
+    }
+}
+
 export function createPlayer({ audio, store }) {
     const queue = createQueue();
 
@@ -32,6 +82,35 @@ export function createPlayer({ audio, store }) {
 
     /** Called whenever the queue's contents or cursor change, so the state can be saved. */
     let onQueueChanged = () => {};
+
+    const volumeSupported = volumeIsSettable(audio);
+
+    // Restored before anything is loaded, so the first track does not play at full volume for
+    // the moment it takes a subscriber to apply the saved level.
+    if (volumeSupported) {
+        audio.volume = storedNumber(VOLUME_KEY, 1);
+        audio.muted = storedNumber(MUTED_KEY, 0) === 1;
+    }
+
+    /** Mirrors the element's output level into the store for the transport to draw. */
+    function publishVolume() {
+        store.set({
+            volume: audio.volume,
+            muted: audio.muted,
+            volumeSupported,
+        });
+    }
+
+    // The element is the source of truth, not our own copy of it: the OS media controls and the
+    // browser's own tab-mute both change `volume` and `muted` without going through this module,
+    // and a slider that ignores those is a slider that lies.
+    audio.addEventListener('volumechange', () => {
+        remember(VOLUME_KEY, audio.volume);
+        remember(MUTED_KEY, audio.muted ? 1 : 0);
+        publishVolume();
+    });
+
+    publishVolume();
 
     function trackOf(id) {
         return id === null ? null : catalogue.get(id) ?? null;
@@ -441,6 +520,38 @@ export function createPlayer({ audio, store }) {
         endSeek(seconds) {
             seeking = false;
             this.seekTo(seconds);
+        },
+
+        /**
+         * Sets the output level, 0 to 1.
+         *
+         * Moving the slider off zero also unmutes. Two separate controls that can disagree --
+         * a slider at 70% while muted -- is a control that appears broken, and the fix the user
+         * reaches for is the one they can see.
+         */
+        setVolume(fraction) {
+            if (!volumeSupported) return;
+
+            const level = Math.min(Math.max(Number(fraction) || 0, 0), 1);
+
+            audio.volume = level;
+            if (level > 0) audio.muted = false;
+
+            // Assigning the same value fires no volumechange, so the store would not learn that
+            // muted just cleared. Published directly rather than relying on the event.
+            publishVolume();
+        },
+
+        toggleMute() {
+            if (!volumeSupported) return;
+
+            // Unmuting at zero would be silent, which reads as the button not working.
+            if (audio.muted && audio.volume === 0) audio.volume = 0.5;
+
+            audio.muted = !audio.muted;
+
+            announce(audio.muted ? 'Muted.' : 'Unmuted.');
+            publishVolume();
         },
 
         setShuffle(on) {

@@ -4,6 +4,7 @@ import { alertUser, announce, mmss, spoken } from './core/ui.js';
 import { api, handleUnauthenticatedWith, isAdmitted, isReady } from './core/api.js';
 import { createRouter } from './core/router.js';
 import { createStore } from './core/store.js';
+import { showShortcuts } from './ui/dialog.js';
 import { bindMediaSession } from './player/mediasession.js';
 import { createPersistence } from './player/persistence.js';
 import { createPlayer } from './player/controller.js';
@@ -32,9 +33,13 @@ const dom = {
     seek: document.getElementById('seek'),
     position: document.getElementById('position'),
     duration: document.getElementById('duration'),
+    volume: document.getElementById('volume'),
+    volumeControls: document.getElementById('volumeControls'),
+    muteButton: document.getElementById('muteButton'),
     syncButton: document.getElementById('syncButton'),
     syncChip: document.getElementById('syncChip'),
     signOutButton: document.getElementById('signOutButton'),
+    shortcutsButton: document.getElementById('shortcutsButton'),
     adminLink: document.getElementById('adminLink'),
     profileButton: document.getElementById('profileButton'),
     profileMenu: document.getElementById('profileMenu'),
@@ -94,7 +99,7 @@ const persistence = createPersistence({ player, store });
 const routes = [
     { path: '/', title: 'Welcome', render: (outlet) => renderWelcome(outlet, { store, onSync: requestSync }) },
     { path: '/library', title: 'Library', render: (outlet) => renderLibrary(outlet, { store, player, onSync: requestSync }) },
-    { path: '/now', title: 'Now playing', render: (outlet) => renderNowPlaying(outlet, { store }) },
+    { path: '/now', title: 'Now playing', render: (outlet) => renderNowPlaying(outlet, { store, player }) },
     { path: '/albums', title: 'Albums', render: (outlet) => renderAlbums(outlet, { store, player }) },
     {
         path: '/albums/:key',
@@ -190,7 +195,15 @@ dom.seek.addEventListener('input', () => {
 
 dom.seek.addEventListener('change', () => player.endSeek(Number(dom.seek.value)));
 
+// On input, not on change: volume is instantaneous and costs nothing, unlike a seek, which
+// issues a fresh ranged request. Dragging it should be audible while you drag.
+dom.volume.addEventListener('input', () => player.setVolume(Number(dom.volume.value) / 100));
+
+dom.muteButton.addEventListener('click', () => player.toggleMute());
+
 dom.syncButton.addEventListener('click', requestSync);
+
+dom.shortcutsButton.addEventListener('click', () => void showShortcuts());
 
 dom.signOutButton.addEventListener('click', async () => {
     try {
@@ -266,6 +279,40 @@ function renderChrome(state) {
         dom.seek.value = String(Math.floor(state.position || 0));
         dom.position.textContent = mmss(state.position);
     }
+
+    renderVolume(state);
+}
+
+/**
+ * Draws the volume control from the element's actual output level.
+ *
+ * Read from the store rather than from our own last write, because the OS media keys and the
+ * browser's tab-mute both change the audio element directly. A slider that only reflects its
+ * own drags is a slider that disagrees with what you can hear.
+ */
+function renderVolume(state) {
+    // Absent, not disabled. There is nothing the user can do about iOS refusing the assignment,
+    // so a greyed-out slider would only invite them to try.
+    dom.volumeControls.hidden = state.volumeSupported === false;
+
+    if (state.volumeSupported === false) return;
+
+    const muted = state.muted === true;
+    const percent = Math.round((state.volume ?? 1) * 100);
+
+    // Muted shows zero rather than the level it will return to. What you hear is the truth the
+    // control should be telling.
+    const shown = muted ? 0 : percent;
+
+    if (document.activeElement !== dom.volume) {
+        dom.volume.value = String(shown);
+    }
+
+    dom.volume.setAttribute('aria-valuetext', muted ? 'Muted' : `${percent} percent`);
+
+    dom.muteButton.dataset.muted = muted ? 'true' : 'false';
+    dom.muteButton.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    dom.muteButton.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
 }
 
 /**
@@ -382,7 +429,19 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': event.preventDefault(); player.previous(); break;
         case 'KeyS': event.preventDefault(); player.setShuffle(!store.state.mode.shuffle); break;
         case 'KeyR': event.preventDefault(); player.cycleRepeat(); break;
+        case 'KeyM': event.preventDefault(); player.toggleMute(); break;
         default: break;
+    }
+
+    // Deliberately not bound to the arrow keys, which is where a full-screen music player would
+    // put volume. #view is the document's only scroll region now, and arrows are how a keyboard
+    // user scrolls it -- taking them would trade a control that has a slider for one that does
+    // not have a replacement.
+
+    // '?' rather than a code, because which physical key produces it depends on the layout.
+    if (event.key === '?') {
+        event.preventDefault();
+        void showShortcuts();
     }
 });
 

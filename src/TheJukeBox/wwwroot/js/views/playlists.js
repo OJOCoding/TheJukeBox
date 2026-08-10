@@ -1,13 +1,17 @@
 // The playlists index, and the playlist detail view.
 //
-// Reordering is done with move-up/move-down buttons rather than drag-and-drop. Drag-and-drop
-// alone is unusable by keyboard and awkward by touch, so it would have needed a keyboard
-// equivalent anyway -- and once the buttons exist they are the whole feature. Dragging can be
-// added on top later without changing the model.
+// Reordering works two ways, and the buttons came first on purpose. Drag-and-drop alone is
+// unusable by keyboard and does not fire at all from a touchscreen -- HTML5 drag events have no
+// touch equivalent -- so move-up/move-down is the implementation and dragging is an accelerator
+// layered over it. Both call the same move(), so there is one reorder to get right, not two.
 
 import { alertUser, announce, clear, el, isoDuration, mmss, notify } from '../core/ui.js';
 import { ApiError, api } from '../core/api.js';
 import { askForText, askToConfirm } from '../ui/dialog.js';
+import { createAdaptiveList } from '../ui/virtual-list.js';
+
+/** Must match --queue-row-h in tokens.css: windowed rows are positioned arithmetically. */
+const ROW_HEIGHT = 72;
 
 /** "1 h 12 m", or "4 m". For a whole playlist, where seconds are noise. */
 function runtime(seconds) {
@@ -239,24 +243,19 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
                     }
                 },
             }),
-            // The way in from here. Adding tracks happens in the library -- that is where the
-            // tracks are -- but nothing on this screen said so, so an empty playlist was a dead
-            // end you had to guess your way out of.
+            // The way in from here. Adding tracks happens in the library, an album or an artist
+            // page -- that is where the tracks are -- but nothing on this screen said so, so an
+            // empty playlist was a dead end you had to guess your way out of.
+            //
+            // There were two of these buttons, side by side, saying the same thing and going to
+            // the same place: one was added, then added again by someone reading the screen
+            // rather than the file.
             el('a', {
                 class: 'btn btn--sm',
                 href: '/library',
                 'data-route': '/library',
                 text: 'ADD TRACKS',
                 'aria-label': `Add tracks to ${title} from the library`,
-            }),
-            // The way tracks get in. There was no route from a playlist to the library at all, so
-            // "open the playlist and add something" was a dead end -- the only path in was to find
-            // the track in the library first and remember which playlist you wanted.
-            el('a', {
-                class: 'btn btn--sm',
-                href: '/library',
-                'data-route': '/library',
-                text: 'ADD TRACKS',
                 title: 'Pick a track in the library, then use ADD TO PLAYLIST',
             }),
             el('button', {
@@ -274,25 +273,40 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
         );
     }
 
+    // One list element for the life of the view, so the windowed renderer keeps a stable
+    // container to attach to across reorders.
+    const list = el('ol', { class: 'queue', 'aria-label': 'Playlist tracks' });
+
+    const rows = createAdaptiveList({ container: list, scrollParent: outlet, rowHeight: ROW_HEIGHT });
+
     function renderItems() {
         if (items.length === 0) {
+            rows.render(0, buildRow);
             body.replaceChildren(el('div', { class: 'notice' },
                 el('p', { text: 'THIS PLAYLIST IS EMPTY.' }),
                 el('p', {
                     class: 'view-header__count',
-                    text: 'In the library, click a track to select it, then press ADD TO PLAYLIST.',
+                    text: 'Select a track in the library — or open an album or an artist — and '
+                        + 'press ADD TO PLAYLIST.',
                 }),
                 el('a', { class: 'btn', href: '/library', 'data-route': '/library', text: 'BROWSE THE LIBRARY' })));
             return;
         }
 
-        const list = el('ol', { class: 'queue', 'aria-label': `Tracks in ${title}` });
-
-        for (const [index, item] of items.entries()) {
-            list.append(row(item, index));
-        }
+        list.setAttribute('aria-label', `Tracks in ${title}`);
 
         body.replaceChildren(list);
+        rows.render(items.length, buildRow);
+    }
+
+    /**
+     * Builds the row at an index.
+     *
+     * Reads `items` rather than closing over it: when windowed this runs on every scroll, long
+     * after renderItems returned, and a captured array would go stale on the first reorder.
+     */
+    function buildRow(index) {
+        return row(items[index], index);
     }
 
     function row(item, index) {
@@ -342,11 +356,116 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
             onclick: () => removeItem(item),
         }, el('span', { 'aria-hidden': 'true', text: '✕' }));
 
-        const node = el('li', { class: 'queue__row' }, play, duration, up, down, drop);
+        // A visible affordance for the drag, and nothing more: it is aria-hidden and not
+        // focusable, because dragging has no keyboard equivalent and the move buttons beside it
+        // are the accessible path. Advertising a control that keyboard users cannot operate
+        // would be worse than leaving the drag undiscoverable.
+        const grip = el('span', { class: 'queue__grip', 'aria-hidden': 'true', text: '⠿' });
+
+        const node = el('li', { class: 'queue__row queue__row--draggable', draggable: true },
+            grip, play, duration, up, down, drop);
+
+        // Read back by the drag handlers, which are delegated to the list. Under windowing a
+        // row's position among its siblings is unrelated to its position in the playlist, so
+        // the index has to travel on the element.
+        node.dataset.index = String(index);
 
         if (!item.isAvailable) node.dataset.unavailable = '1';
 
         return node;
+    }
+
+    // ---------------------------------------------------------------------
+    // Dragging
+    // ---------------------------------------------------------------------
+    //
+    // Delegated to the list rather than bound per row: a playlist can be windowed, so rows come
+    // and go under the pointer, and a listener attached at build time would be attached to a
+    // row that has since been recycled.
+
+    /** The index being dragged, or -1. */
+    let dragging = -1;
+
+    function indexOf(target) {
+        const row = target instanceof Element ? target.closest('.queue__row') : null;
+        const index = row ? Number(row.dataset.index) : NaN;
+
+        return Number.isInteger(index) ? index : -1;
+    }
+
+    list.addEventListener('dragstart', (event) => {
+        dragging = indexOf(event.target);
+
+        if (dragging < 0) return;
+
+        // Firefox starts no drag at all unless some data is set. The payload itself is unused --
+        // the index is held here, because a drop from another window is not a reorder.
+        event.dataTransfer.setData('text/plain', String(dragging));
+        event.dataTransfer.effectAllowed = 'move';
+
+        rows.nodeAt(dragging)?.setAttribute('data-dragging', 'true');
+    });
+
+    list.addEventListener('dragover', (event) => {
+        if (dragging < 0) return;
+
+        // Without preventDefault the browser refuses the drop: the default action for dragover
+        // is "this is not a valid target".
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+
+        const over = event.target instanceof Element ? event.target.closest('.queue__row') : null;
+
+        clearDropMarkers();
+
+        if (!over || over.dataset.index === String(dragging)) return;
+
+        // Above or below the midpoint, which is what makes the line land where the row will.
+        const box = over.getBoundingClientRect();
+        over.dataset.drop = event.clientY < box.top + box.height / 2 ? 'before' : 'after';
+    });
+
+    list.addEventListener('drop', (event) => {
+        // Captured before endDrag, which resets it. Reading `dragging` afterwards gave -1, and
+        // -1 is a legal argument to splice that means "from the end" -- so every drop silently
+        // reordered the *last* row instead of the one under the pointer.
+        const from = dragging;
+
+        if (from < 0) return;
+
+        event.preventDefault();
+
+        const over = event.target instanceof Element ? event.target.closest('.queue__row') : null;
+        const target = over ? Number(over.dataset.index) : NaN;
+        const before = over?.dataset.drop !== 'after';
+
+        endDrag();
+
+        if (!Number.isInteger(target) || target === from) return;
+
+        // Converted from "insert before/after row N" to the index the item ends up at once it
+        // has been spliced out. Removing it first shifts everything below it up by one, so a
+        // downward move overshoots by exactly that one place without this.
+        let to = before ? target : target + 1;
+        if (from < to) to -= 1;
+
+        if (from !== to) void move(from, to);
+    });
+
+    // dragend fires whether or not a drop landed, which is what clears the markers after a drag
+    // that was abandoned outside the list.
+    list.addEventListener('dragend', endDrag);
+
+    function endDrag() {
+        clearDropMarkers();
+
+        for (const node of list.querySelectorAll('[data-dragging]')) node.removeAttribute('data-dragging');
+
+        dragging = -1;
+    }
+
+    function clearDropMarkers() {
+        for (const node of list.querySelectorAll('[data-drop]')) delete node.dataset.drop;
     }
 
     /** How many playable items precede `index`, which is the offset into the track-id list. */
@@ -355,6 +474,10 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
     }
 
     async function move(from, to) {
+        // Both ends validated, not just the destination. splice() accepts a negative index as
+        // an offset from the end rather than rejecting it, so an out-of-range `from` does not
+        // throw -- it quietly moves a different track, which is the worst of both worlds.
+        if (from < 0 || from >= items.length) return;
         if (to < 0 || to >= items.length) return;
 
         const reordered = [...items];
@@ -370,13 +493,17 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
         // Focus follows the row that moved. Without this, a keyboard user pressing "move down"
         // repeatedly loses the button after the first press, because the element they were on
         // has just been replaced by a re-render.
+        //
+        // Asked for by index rather than read off the DOM: when windowed the nth child of the
+        // list is not the nth item, so `querySelectorAll(...)[to]` would focus a control on some
+        // other track -- and the next press would move that one.
+        const landed = rows.nodeAt(to);
         const direction = to > from ? 'down' : 'up';
-        const rows = body.querySelectorAll('.queue__row');
-        const wanted = rows[to]?.querySelector(`[data-move="${direction}"]`);
+        const wanted = landed?.querySelector(`[data-move="${direction}"]`);
 
         // At either end the button in that direction is disabled and cannot take focus, so fall
         // back to the opposite one rather than dropping focus to the body.
-        const fallback = rows[to]?.querySelector(`[data-move="${direction === 'up' ? 'down' : 'up'}"]`);
+        const fallback = landed?.querySelector(`[data-move="${direction === 'up' ? 'down' : 'up'}"]`);
 
         (wanted?.disabled ? fallback : wanted)?.focus();
 
@@ -442,7 +569,10 @@ export function renderPlaylistDetail(outlet, { player, store }, params) {
 
     load();
 
-    return () => controller.abort();
+    return () => {
+        controller.abort();
+        rows.destroy();
+    };
 }
 
 /** Queues a playlist and starts it, from `startAt` if given. */

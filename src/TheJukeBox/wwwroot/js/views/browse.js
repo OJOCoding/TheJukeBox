@@ -10,6 +10,7 @@
 
 import { alertUser, announce, clear, el, isoDuration, mmss } from '../core/ui.js';
 import { ApiError, api } from '../core/api.js';
+import { addTracksToPlaylist } from '../ui/playlist-picker.js';
 
 /** "1 H 12 M", or "4 M". For a whole album, where seconds are noise. */
 function runtime(seconds) {
@@ -409,10 +410,24 @@ function renderGroupDetail(outlet, { player }, options) {
                 text: 'ADD TO QUEUE',
                 'aria-label': `Add ${title} to the queue`,
                 onclick: () => {
+                    // Primed first. enqueue() drops ids the catalogue does not know, and on a
+                    // deep link to an album that is every one of them -- so without this the
+                    // button reported "nothing could be added" for a full track list.
+                    prime(tracks);
+
                     const added = player.enqueue(tracks.map((t) => t.id));
 
                     if (added === 0) alertUser('Nothing here could be added to the queue.');
                 },
+            }),
+            // Keeping a record together was previously only possible one track at a time from
+            // the library, which is the screen that does not know what an album is.
+            el('button', {
+                class: 'btn btn--sm',
+                type: 'button',
+                text: 'ADD TO PLAYLIST',
+                'aria-label': `Add ${title} to a playlist`,
+                onclick: () => void addTracksToPlaylist(tracks.map((t) => t.id), title),
             }),
             el('a', {
                 class: 'btn btn--sm',
@@ -461,12 +476,26 @@ function renderGroupDetail(outlet, { player }, options) {
         const iso = isoDuration(track.durationSeconds);
         if (iso) duration.setAttribute('datetime', iso);
 
-        return el('li', { class: 'queue__row' }, playButton, duration);
+        // One track from a record, without going back to the library to find it again.
+        const addButton = el('button', {
+            class: 'icon-btn icon-btn--sm',
+            type: 'button',
+            'aria-label': `Add ${track.title} to a playlist`,
+            title: 'Add to a playlist',
+            onclick: () => void addTracksToPlaylist([track.id], track.title),
+        }, el('span', { 'aria-hidden': 'true', text: '+' }));
+
+        return el('li', { class: 'queue__row' }, playButton, duration, addButton);
     }
 
-    function play(tracks, startAt, title) {
-        // The catalogue is primed from what is on screen, or the player cannot name or stream
-        // tracks the library view has never loaded -- which for an album deep link is all of them.
+    /**
+     * Teaches the player about the tracks on screen.
+     *
+     * Everything that queues or plays goes through this first. The player refuses ids it cannot
+     * name or stream, and on a deep link to an album the library view has never run -- so the
+     * catalogue is empty and every id here is unknown to it.
+     */
+    function prime(tracks) {
         player.mergeCatalogue(tracks.map((t) => ({
             id: t.id,
             title: t.title,
@@ -475,6 +504,10 @@ function renderGroupDetail(outlet, { player }, options) {
             durationSeconds: t.durationSeconds,
             artSha256: t.artSha256,
         })));
+    }
+
+    function play(tracks, startAt, title) {
+        prime(tracks);
 
         if (player.playAll(tracks.map((t) => t.id), { startAt })) announce(`Playing ${title}.`);
     }

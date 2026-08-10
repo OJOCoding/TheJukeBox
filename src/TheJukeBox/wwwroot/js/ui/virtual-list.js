@@ -11,6 +11,18 @@
 // an option.
 
 /**
+ * Above this many rows a list is windowed; below it every row is rendered.
+ *
+ * Virtualisation is the riskier path, especially for assistive technology: NVDA's browse-mode
+ * buffer can go stale after DOM recycling, and iOS VoiceOver's swipe navigation over a recycled
+ * list is historically unreliable. Most real libraries are under this threshold, so most users
+ * get the simple, well-understood rendering and only genuinely large ones take on the risk.
+ *
+ * Declared here rather than at the foot of the file because createAdaptiveList defaults to it.
+ */
+export const VIRTUALISE_ABOVE = 500;
+
+/**
  * The visible index range, given a scroll position.
  *
  * Pure, and exported separately because every off-by-one in a virtualised list lives here.
@@ -55,7 +67,7 @@ export function createVirtualList({ container, scrollParent, rowHeight, renderRo
     let rendered = new Map();
     let frame = 0;
 
-    container.classList.add('list--virtual');
+    container.classList.add('is-virtual');
 
     /**
      * How far the scroll viewport's top edge has passed into the list.
@@ -215,19 +227,87 @@ export function createVirtualList({ container, scrollParent, rowHeight, renderRo
             if (frame) cancelAnimationFrame(frame);
             scrollParent.removeEventListener('scroll', onScroll);
             resizeObserver.disconnect();
-            container.classList.remove('list--virtual');
+            container.classList.remove('is-virtual');
             container.style.height = '';
         },
     };
 }
 
 /**
- * Above this many rows the list is windowed; below it every row is rendered.
+ * A list that windows itself only when it is long enough to be worth the risk.
  *
- * Virtualisation is the riskier path, especially for assistive technology: NVDA's
- * browse-mode buffer can go stale after DOM recycling, and iOS VoiceOver's swipe navigation
- * over a recycled list is historically unreliable. Most real libraries are under this
- * threshold, so most users get the simple, well-understood rendering and only genuinely large
- * libraries take on the risk.
+ * Every list in this app wants the same three things: render all of it when it is small, window
+ * it when it is not, and tear the windowing down again before re-rendering or navigating away.
+ * The library did all three inline. The queue and playlists did none of them, so a two-thousand
+ * entry playlist rendered two thousand rows -- each a grid with four controls -- which is worse
+ * than the case virtualisation was built for in the first place.
+ *
+ * Written once here rather than a third and fourth time, because the part that is easy to get
+ * wrong is not the rendering. It is remembering to destroy the previous renderer: skip it and a
+ * detached list keeps a scroll and a resize listener on the shell forever.
  */
-export const VIRTUALISE_ABOVE = 500;
+export function createAdaptiveList({ container, scrollParent, rowHeight, threshold = VIRTUALISE_ABOVE }) {
+    let virtual = null;
+
+    function teardown() {
+        virtual?.destroy();
+        virtual = null;
+    }
+
+    return {
+        /**
+         * Draws `count` rows, calling `buildRow(index)` for the ones that need to exist.
+         *
+         * @param {number} count total rows, which above the threshold is far more than are built.
+         * @param {(index: number) => HTMLElement} buildRow
+         */
+        render(count, buildRow) {
+            teardown();
+            container.replaceChildren();
+
+            if (count <= 0) return;
+
+            if (count > threshold) {
+                virtual = createVirtualList({ container, scrollParent, rowHeight, renderRow: buildRow });
+                virtual.setTotal(count);
+                return;
+            }
+
+            // Below the threshold every row is in the DOM. Virtualisation is the riskier path for
+            // assistive technology, and most lists never need it.
+            const fragment = document.createDocumentFragment();
+
+            for (let index = 0; index < count; index++) fragment.append(buildRow(index));
+
+            container.append(fragment);
+        },
+
+        /** Whether the list is currently windowed. */
+        get isWindowed() {
+            return virtual !== null;
+        },
+
+        /**
+         * The element for an index, or null if it is not currently rendered.
+         *
+         * Callers must go through this rather than indexing `container.children`. Under
+         * windowing the DOM holds an arbitrary subset in an arbitrary order, so the nth child is
+         * not the nth row -- which is how focus ends up on the wrong control after a reorder.
+         */
+        nodeAt(index) {
+            return virtual ? virtual.nodeAt(index) : container.children[index] ?? null;
+        },
+
+        /** Scrolls an index into view and returns its element. */
+        reveal(index) {
+            if (virtual) return virtual.reveal(index);
+
+            const node = container.children[index] ?? null;
+            node?.scrollIntoView({ block: 'nearest' });
+
+            return node;
+        },
+
+        destroy: teardown,
+    };
+}
