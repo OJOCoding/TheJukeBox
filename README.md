@@ -10,6 +10,21 @@ through. Self-hosted: one process, one SQLite file, one directory to back up.
 Built with ASP.NET Core on .NET 10 and a dependency-free vanilla-JavaScript frontend, in a
 deliberately monochrome "technical blueprint" style.
 
+![Now Playing: the cover at size, the track and artist, a recently-played strip underneath,
+and the transport pinned to the bottom of the window where it stays on every
+view.](docs/screenshots/02-now-playing.png)
+
+<details>
+<summary>The sign-in page</summary>
+
+The first and only thing an unapproved visitor can reach. No nav, no transport, no account
+menu — furniture with nothing behind it is worse than no furniture.
+
+![The sign-in page: the project described in three paragraphs, and one Sign in with Google
+button.](docs/screenshots/01-welcome.png)
+
+</details>
+
 - [What it does](#what-it-does)
 - [Quick start with Docker](#quick-start-with-docker)
 - [Running locally](#running-locally)
