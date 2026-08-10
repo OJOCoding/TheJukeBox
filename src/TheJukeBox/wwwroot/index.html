@@ -104,6 +104,12 @@
                      main.js asserts every id in its dom map exists at startup. -->
                 <a class="menu__item" href="/admin" data-route="/admin" id="adminLink" role="menuitem" hidden>ACCOUNTS</a>
 
+                <!-- The discoverable half of the shortcuts. "Press ? for help" only helps
+                     someone who already knows to press something. -->
+                <button class="menu__item" id="shortcutsButton" type="button" role="menuitem">
+                    KEYBOARD SHORTCUTS
+                </button>
+
                 <button class="menu__item" id="signOutButton" type="button" role="menuitem">SIGN OUT</button>
             </div>
         </div>
@@ -146,6 +152,41 @@
             <input class="range" id="seek" type="range" min="0" max="0" step="1" value="0"
                    aria-valuetext="0 seconds of 0 seconds">
             <span class="transport__time"><time id="position">0:00</time> / <time id="duration">0:00</time></span>
+
+            <!--
+              Hidden entirely where the browser refuses to let script set the output level --
+              iOS Safari makes `volume` read-only on the grounds that the hardware buttons are
+              the volume control. A slider that does nothing is worse than no slider.
+            -->
+            <div class="transport__volume" id="volumeControls">
+                <button class="icon-btn icon-btn--sm" id="muteButton" type="button"
+                        data-muted="false" aria-pressed="false" aria-label="Mute"
+                        aria-keyshortcuts="M">
+                    <!--
+                      Inline SVG rather than a glyph, for the same reason the sync button is one:
+                      the speaker characters that exist are emoji, so they render in colour on
+                      most platforms and break a deliberately monochrome interface. The waves and
+                      the slash are both present; CSS shows one set or the other from data-muted.
+                    -->
+                    <svg class="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"
+                         fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="4 9 8 9 13 5 13 19 8 15 4 15" fill="currentColor" stroke="none" />
+                        <g class="icon__waves">
+                            <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+                            <path d="M19 6a8.5 8.5 0 0 1 0 12" />
+                        </g>
+                        <g class="icon__slash">
+                            <path d="M17 9.5l5 5" />
+                            <path d="M22 9.5l-5 5" />
+                        </g>
+                    </svg>
+                </button>
+
+                <label class="sr-only" for="volume">Volume</label>
+                <input class="range range--volume" id="volume" type="range"
+                       min="0" max="100" step="1" value="100" aria-valuetext="100 percent">
+            </div>
         </div>
     </div>
 
@@ -162,12 +203,19 @@
       player built rows by string concatenation, which is why escaping had to be
       remembered at every call site and was missed in the error path.
     -->
+    <!--
+      The play count is in every row and shown only when the library is ordered by listening.
+      Present-but-hidden rather than conditionally built: the windowed list positions rows
+      arithmetically at a fixed height, so a row that sometimes has one more cell than its
+      neighbours is a row whose height can disagree with the arithmetic.
+    -->
     <template id="tpl-track-row">
         <li class="list-row" role="option">
             <span class="list-row__num"></span>
             <span class="list-row__title"></span>
             <span class="list-row__artist"></span>
             <span class="list-row__album"></span>
+            <span class="list-row__plays"></span>
             <time class="list-row__duration"></time>
         </li>
     </template>

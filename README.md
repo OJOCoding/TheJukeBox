@@ -43,10 +43,17 @@ text search, and sorting by title, artist, album, date added, duration, play cou
 played. Albums group by album artist so compilations stay whole; artists group by track
 artist so everyone on a compilation still has a page.
 
-**Playlists, a queue you can see, and a resume point.** Build and reorder playlists, edit the
+**Playlists, a queue you can see, and a resume point.** Build playlists from the library or
+straight off an album or artist page, reorder them by dragging or with the keyboard, edit the
 queue directly, and pick up exactly where you left off — the queue, the position within the
 current track, shuffle and repeat are all saved server-side, so closing the tab or moving to
-your phone continues the same listening. Play counts and a listening history come with it.
+your phone continues the same listening.
+
+**It remembers what you played.** Play counts and a listening log, which is what "most
+played" and "recently played" sort by, and what the strip under Now Playing shows.
+
+**Keyboard first, if you want it.** Space, the arrow keys, `S`, `R` and `M` work anywhere
+that is not a text field or the track list, and `?` shows the whole card.
 
 **Multi-user, with a door.** Each person signs in with their own Google account and sees only
 their own music. New accounts wait for your approval by default; approving or disabling
@@ -293,12 +300,14 @@ The client-side routes are `/`, `/library`, `/now`, `/albums`, `/albums/:key`, `
 
 Deliberate omissions, stated so nobody has to discover them:
 
-- **Drag-and-drop reordering.** Playlists reorder with move-up/move-down buttons, which work
-  by keyboard and by touch. Dragging would be additive and needs no change to the model.
 - **Offline playback.** The app shell is cached and installable, so it loads offline, but
   audio itself is not stored for offline listening.
-- **Queue and playlist lists are not windowed.** The library is, above 500 tracks. A playlist
-  of several thousand entries would render every row.
+- **Reordering a playlist by touch** means the move-up/move-down buttons. Dragging is there
+  for a pointer, but HTML5 drag events do not fire from a touchscreen at all, so the buttons
+  are the implementation and dragging is an accelerator over the top of it.
+- **Volume is fixed on iOS.** Safari makes `audio.volume` read-only on the grounds that the
+  hardware buttons are the volume control. The slider is hidden there rather than shown doing
+  nothing.
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
 
 ## Security

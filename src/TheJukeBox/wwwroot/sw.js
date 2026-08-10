@@ -24,7 +24,7 @@
 // install handler re-runs addAll only for a cache name it has not seen, so leaving the version
 // alone serves the old bytes of an unchanged filename. Stale-while-revalidate does eventually
 // pick the new ones up, but a full reload behind, which reads as "my fix did not deploy".
-const VERSION = 'v6';
+const VERSION = 'v7';
 
 const SHELL_CACHE = `jb-shell-${VERSION}`;
 const ART_CACHE = `jb-art-${VERSION}`;
@@ -46,6 +46,7 @@ const PRECACHE = [
     '/js/player/persistence.js',
     '/js/ui/virtual-list.js',
     '/js/ui/dialog.js',
+    '/js/ui/playlist-picker.js',
     '/js/views/welcome.js',
     '/js/views/library.js',
     '/js/views/admin.js',

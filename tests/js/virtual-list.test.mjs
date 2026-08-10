@@ -8,9 +8,14 @@
 // code -- but both are trivially assertable.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import { VIRTUALISE_ABOVE, computeWindow } from '../../src/TheJukeBox/wwwroot/js/ui/virtual-list.js';
+
+const wwwroot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'TheJukeBox', 'wwwroot');
 
 const ROW = 56;
 
@@ -129,5 +134,58 @@ describe('the virtualisation threshold', () => {
 
     it('is low enough to engage before rendering becomes slow', () => {
         assert.ok(VIRTUALISE_ABOVE <= 2000);
+    });
+});
+
+/**
+ * The row heights are written down twice: once as a CSS custom property that sizes the row, and
+ * once as a JavaScript constant that positions it. They are not derived from each other, because
+ * reading a custom property means a laid-out element and the renderer runs before there is one.
+ *
+ * So they can drift, and drift here is invisible in the small case and silently broken in the
+ * large one: below the threshold nothing is positioned arithmetically and everything looks fine,
+ * and above it every row lands a few pixels further from where it is drawn than the last, until
+ * rows overlap or leave gaps hundreds of rows down. Nobody has a library that long until they do.
+ */
+describe('the row heights the windowed lists position by', () => {
+    const tokens = readFileSync(join(wwwroot, 'css', 'tokens.css'), 'utf8');
+
+    /** The pixel value of a `--name: 56px;` declaration. */
+    function token(name) {
+        const match = tokens.match(new RegExp(`--${name}:\\s*(\\d+)px`));
+
+        assert.ok(match, `tokens.css declares no --${name}`);
+
+        return Number(match[1]);
+    }
+
+    /** The `const ROW_HEIGHT = 56;` a view positions its rows with. */
+    function constantIn(...path) {
+        const source = readFileSync(join(wwwroot, ...path), 'utf8');
+        const match = source.match(/const ROW_HEIGHT = (\d+);/);
+
+        assert.ok(match, `${path.join('/')} declares no ROW_HEIGHT`);
+
+        return Number(match[1]);
+    }
+
+    it('agree with --row-h for the library', () => {
+        assert.equal(constantIn('js', 'views', 'library.js'), token('row-h'));
+    });
+
+    it('agree with --queue-row-h for the queue', () => {
+        assert.equal(constantIn('js', 'views', 'queue.js'), token('queue-row-h'));
+    });
+
+    it('agree with --queue-row-h for playlists', () => {
+        assert.equal(constantIn('js', 'views', 'playlists.js'), token('queue-row-h'));
+    });
+
+    it('clear the tallest row each list can produce', () => {
+        // Measured in a browser rather than derived: a library row is one line of text and a
+        // queue row stacks a title over an artist, which came out at 67.1px. A value under the
+        // natural height clips, because the windowed rule applies it exactly.
+        assert.ok(token('row-h') >= 56, 'a one-line library row measured 56px');
+        assert.ok(token('queue-row-h') >= 68, 'a two-line queue row measured 67.1px');
     });
 });

@@ -10,13 +10,67 @@
 // and no way past them. role="listbox" with a roving aria-activedescendant is one tab
 // stop, and aria-setsize/aria-posinset are designed for exactly this.
 
-import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss, notify } from '../core/ui.js';
+import { alertUser, announce, clear, el, fromTemplate, isoDuration, mmss } from '../core/ui.js';
 import { api, ApiError } from '../core/api.js';
-import { VIRTUALISE_ABOVE, createVirtualList } from '../ui/virtual-list.js';
-import { askForText, chooseFrom } from '../ui/dialog.js';
+import { createAdaptiveList } from '../ui/virtual-list.js';
+import { addTracksToPlaylist } from '../ui/playlist-picker.js';
 
 /** Must match --row-h in app.css: windowed rows are positioned arithmetically. */
 const ROW_HEIGHT = 56;
+
+/**
+ * The orderings the server supports, with names for people.
+ *
+ * `/api/tracks?sort=` has accepted all seven of these since B1 and nothing ever offered them, so
+ * a library could only ever be read alphabetically. "Recently added" and "most played" are the
+ * two orderings a music library is actually for.
+ *
+ * The values are the wire contract -- see LibraryEndpoints.Order -- so they are not free to be
+ * prettier than this.
+ */
+const SORTS = [
+    { value: 'title', label: 'TITLE' },
+    { value: 'artist', label: 'ARTIST' },
+    { value: 'album', label: 'ALBUM' },
+    { value: 'added', label: 'RECENTLY ADDED' },
+    { value: 'recent', label: 'RECENTLY PLAYED' },
+    { value: 'played', label: 'MOST PLAYED' },
+    { value: 'duration', label: 'DURATION' },
+];
+
+/**
+ * The two orderings that are *about* listening, so the play count earns its column there.
+ *
+ * Shown conditionally rather than always. A count of zero beside every track is noise while you
+ * are looking for a song by name, and it is the entire point when you have asked for the ones
+ * you play most.
+ */
+const LISTENING_SORTS = new Set(['played', 'recent']);
+
+/** Where the chosen ordering is remembered between visits. */
+const SORT_KEY = 'jukebox.library.sort';
+
+function storedSort() {
+    try {
+        const saved = window.localStorage.getItem(SORT_KEY);
+
+        // Validated against the list rather than trusted: localStorage is user-writable, and an
+        // unrecognised value would be sent to the server and silently fall back to title anyway,
+        // leaving the control disagreeing with the list it produced.
+        return SORTS.some((s) => s.value === saved) ? saved : 'title';
+    } catch {
+        // Storage can throw outright when cookies are blocked. A default is a fine answer.
+        return 'title';
+    }
+}
+
+function rememberSort(value) {
+    try {
+        window.localStorage.setItem(SORT_KEY, value);
+    } catch {
+        // Not worth telling anyone about: the sort still applies for this visit.
+    }
+}
 
 export function renderLibrary(outlet, { store, player, onSync }) {
     const controller = new AbortController();
@@ -80,7 +134,28 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         class: 'btn btn--sm',
         type: 'button',
         text: 'ADD TO PLAYLIST',
-        onclick: () => addSelectedToPlaylist(),
+        onclick: () => {
+            const track = tracks[selected];
+
+            if (!track) alertUser('Select a track first.');
+            else void addTracksToPlaylist([track.id], track.title);
+        },
+    });
+
+    const sort = el('select', {
+        class: 'select',
+        id: 'librarySort',
+        'aria-label': 'Order the library by',
+    }, ...SORTS.map((option) => el('option', { value: option.value, text: option.label })));
+
+    sort.value = storedSort();
+
+    sort.addEventListener('change', () => {
+        rememberSort(sort.value);
+
+        // Selection is an index into the old order, so keeping it would leave the cursor on a
+        // different track than the one it was on. load() resets it to the top.
+        load(search.value.trim());
     });
 
     const playAllButton = el('button', {
@@ -106,6 +181,9 @@ export function renderLibrary(outlet, { store, player, onSync }) {
             el('form', { class: 'field', role: 'search', onsubmit: (e) => e.preventDefault() },
                 el('span', { class: 'field__prompt', 'aria-hidden': 'true', text: '>' }),
                 search),
+            el('label', { class: 'field field--select', htmlFor: 'librarySort' },
+                el('span', { class: 'field__label', text: 'SORT' }),
+                sort),
             el('div', { class: 'view-header__actions' },
                 playButton, queueButton, playlistButton, playAllButton),
             selectedLabel,
@@ -113,107 +191,17 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         body,
     );
 
-    /**
-     * Adds the selected track to a playlist the user picks.
-     *
-     * A native prompt rather than a custom dialog, because this app has no dialog primitive and a
-     * hand-rolled one is a focus trap, an escape handler and a scroll lock away from being correct.
-     *
-     * Creating a playlist is offered from inside the same flow. Without it, someone with no
-     * playlists yet was told to go to another screen, make one, come back and find their track
-     * again -- four steps to do the thing they had already asked for.
-     */
-    async function addSelectedToPlaylist() {
-        const track = tracks[selected];
-
-        if (!track) {
-            alertUser('Select a track first.');
-            return;
-        }
-
-        let playlists;
-
-        try {
-            playlists = await api.playlists();
-        } catch (error) {
-            alertUser(error.message);
-            return;
-        }
-
-        const target = playlists.length === 0
-            ? await createPlaylistFor(track)
-            : await choosePlaylistFor(track, playlists);
-
-        if (!target) return;
-
-        try {
-            const result = await api.addToPlaylist(target.id, [track.id]);
-
-            if (result.added === 1) notify(`Added "${track.title}" to ${target.name}.`);
-            else alertUser(`"${track.title}" could not be added to ${target.name}.`);
-        } catch (error) {
-            alertUser(error.message);
-        }
-    }
-
-    /** Offers to make a playlist, returning it, or null if the user backed out. */
-    async function createPlaylistFor(track) {
-        const name = await askForText({
-            title: 'NEW PLAYLIST',
-            message: `Name it, and "${track.title}" will be added to it.`,
-            value: 'Favourites',
-            confirmLabel: 'CREATE',
-        });
-
-        if (name === null) return null;
-
-        try {
-            const created = await api.createPlaylist(name);
-
-            notify(`Created the playlist ${created.name}.`);
-
-            return created;
-        } catch (error) {
-            alertUser(error.message);
-            return null;
-        }
-    }
-
-    /**
-     * A button per playlist, plus one to make a new one.
-     *
-     * Buttons rather than "type the number next to the name you want", which is what a native
-     * prompt reduced this to. It also cannot throw: prompt() is unsupported in some browser
-     * contexts and raises "prompt() is not supported", which is precisely what made this feature
-     * appear to do nothing -- the call threw, the rejection went unhandled, and no dialog ever
-     * appeared.
-     */
-    async function choosePlaylistFor(track, playlists) {
-        const chosen = await chooseFrom({
-            title: 'ADD TO PLAYLIST',
-            message: `Where should "${track.title}" go?`,
-            items: playlists,
-            label: (playlist) => `${playlist.name} (${playlist.trackCount})`,
-            newLabel: 'NEW PLAYLIST',
-        });
-
-        if (chosen === null) return null;
-
-        return chosen === 'new' ? createPlaylistFor(track) : chosen;
-    }
-
     /** @type {Array<object>} the rows currently rendered, in display order. */
     let tracks = [];
     let selected = -1;
     let searchTimer = null;
     let typeAhead = { text: '', at: 0 };
 
-    /** Set only above the threshold; null means every row is in the DOM. */
-    let virtual = null;
-
     // The shell's single scroll region, which is what actually scrolls. The list does not
     // scroll itself: B2 deliberately avoided a nested scroll area.
     const scrollParent = outlet;
+
+    const rows = createAdaptiveList({ container: list, scrollParent, rowHeight: ROW_HEIGHT });
 
     function rowId(index) {
         return `track-${index}`;
@@ -248,44 +236,29 @@ export function renderLibrary(outlet, { store, player, onSync }) {
         const iso = isoDuration(track.durationSeconds);
         if (iso) duration.setAttribute('datetime', iso);
 
+        // Filled whichever ordering is showing, because the cell is hidden by CSS rather than
+        // omitted -- writing it unconditionally keeps buildRow free of the sort.
+        const plays = row.querySelector('.list-row__plays');
+        const count = track.playCount ?? 0;
+
+        plays.textContent = count === 0 ? '—' : String(count);
+        plays.setAttribute('aria-label', count === 1 ? '1 play' : `${count} plays`);
+
         return row;
     }
 
     function render() {
-        clear(list);
-
-        virtual?.destroy();
-        virtual = null;
-
         if (tracks.length === 0) {
+            rows.render(0, buildRow);
             body.replaceChildren(el('p', { class: 'notice', text: 'NO TRACKS MATCH.' }));
             return;
         }
 
         body.replaceChildren(list);
 
-        if (tracks.length > VIRTUALISE_ABOVE) {
-            // Windowed. The row height must match the stylesheet's --row-h exactly, since
-            // rows are positioned arithmetically rather than by flow.
-            virtual = createVirtualList({
-                container: list,
-                scrollParent,
-                rowHeight: ROW_HEIGHT,
-                renderRow: buildRow,
-            });
-
-            virtual.setTotal(tracks.length);
-        } else {
-            // Below the threshold every row is rendered. Virtualisation is the riskier path
-            // for assistive technology, and most libraries never need it.
-            const fragment = document.createDocumentFragment();
-
-            for (let index = 0; index < tracks.length; index++) {
-                fragment.append(buildRow(index));
-            }
-
-            list.append(fragment);
-        }
+        // The row height must match the stylesheet's --row-h exactly when windowed, since rows
+        // are then positioned arithmetically rather than by flow.
+        rows.render(tracks.length, buildRow);
 
         paintStates();
     }
@@ -341,16 +314,10 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
         selected = Math.min(Math.max(next, 0), tracks.length - 1);
 
-        if (virtual) {
-            // Renders the target row before paintStates runs, so activedescendant has
-            // something to point at.
-            virtual.reveal(selected);
-            paintStates();
-            return;
-        }
-
+        // Revealed before painting, not after: when windowed this is what renders the target
+        // row, and aria-activedescendant must point at an id that already exists.
+        rows.reveal(selected);
         paintStates();
-        list.children[selected]?.scrollIntoView({ block: 'nearest' });
     }
 
     function activate(index) {
@@ -445,10 +412,14 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
     async function load(query = '') {
         try {
-            const page = await api.tracks({ q: query, signal: controller.signal });
+            const page = await api.tracks({ q: query, sort: sort.value, signal: controller.signal });
 
             tracks = page.items;
             selected = tracks.length > 0 ? 0 : -1;
+
+            // The play-count column appears only for the orderings it explains. Set on the list
+            // rather than per row so the grid template changes once, not once per track.
+            list.classList.toggle('list--plays', LISTENING_SORTS.has(sort.value));
 
             count.textContent = query
                 ? `${page.total} MATCHING`
@@ -495,7 +466,6 @@ export function renderLibrary(outlet, { store, player, onSync }) {
 
         // Detaches the scroll and resize listeners. Without this, navigating away leaves a
         // renderer observing the shell's scroll region for a list that no longer exists.
-        virtual?.destroy();
-        virtual = null;
+        rows.destroy();
     };
 }

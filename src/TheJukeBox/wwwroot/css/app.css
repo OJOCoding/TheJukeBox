@@ -412,6 +412,50 @@ h1 {
     color: var(--color-ink-tertiary);
 }
 
+/* A labelled select, in the same bordered slab as the search field so the header reads as one
+   row of controls rather than a form field next to a browser widget. */
+.field--select {
+    gap: var(--space-12);
+}
+
+.field__label {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    user-select: none;
+}
+
+/* `appearance: none` drops the platform chevron along with the platform styling, so one is
+   drawn back as a background triangle -- a select with no affordance reads as a text field
+   that ignores typing. */
+.select {
+    appearance: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-ink) 50%),
+                      linear-gradient(135deg, var(--color-ink) 50%, transparent 50%);
+    background-position: right 10px top 50%, right 5px top 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-block: var(--space-12);
+    padding-inline-end: var(--space-20);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-ink);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    cursor: pointer;
+}
+
+/* The dropdown itself is drawn by the platform, and on a dark OS theme it inherits a dark
+   popup with the ink colour we set here -- black on black. Naming both ends fixes it. */
+.select option {
+    background: var(--color-surface);
+    color: var(--color-ink);
+}
+
 .list {
     list-style: none;
 }
@@ -422,15 +466,21 @@ h1 {
    spacer element. A spacer is the more common technique and would be wrong here:
    role="listbox" permits only option children, and a spacer is not an option.
 */
-.list--virtual {
+.is-virtual {
     position: relative;
 }
 
-.list--virtual .list-row {
-    /* Exact, not minimum. Row positions are computed arithmetically, so a row that grew
-       would overlap its neighbour rather than push it down. */
+/* Exact, not minimum, in both cases. Row positions are computed arithmetically, so a row that
+   grew would overlap its neighbour rather than push it down. */
+.list.is-virtual .list-row {
     height: var(--row-h);
     min-height: var(--row-h);
+    box-sizing: border-box;
+}
+
+.queue.is-virtual .queue__row {
+    height: var(--queue-row-h);
+    min-height: var(--queue-row-h);
     box-sizing: border-box;
 }
 
@@ -447,6 +497,29 @@ h1 {
     /* Shared with the virtual list's arithmetic. The two must agree exactly, so the value
        lives in one place. */
     min-height: var(--row-h);
+}
+
+/* The play count is in the markup for every row and only occupies a column when the library is
+   ordered by listening. `display: none` rather than a narrower column: a count of zero beside
+   every track is noise while you are looking for a song by name. */
+.list-row__plays {
+    display: none;
+    font-size: var(--text-sm);
+    color: var(--color-ink-tertiary);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+.list--plays .list-row {
+    grid-template-columns: 3rem 1fr 14rem 14rem 4rem 5rem;
+}
+
+.list--plays .list-row__plays {
+    display: block;
+}
+
+.list-row[aria-current="true"] .list-row__plays {
+    color: var(--color-surface);
 }
 
 .list-row:hover {
@@ -709,6 +782,46 @@ h1 {
     text-align: start;
 }
 
+/* --- Shortcut reference --------------------------------------------------- */
+.shortcuts__group + .shortcuts__group {
+    margin-block-start: var(--space-16);
+}
+
+.shortcuts__heading {
+    font-size: var(--text-xs);
+    color: var(--color-ink-tertiary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    margin-block-end: var(--space-8);
+}
+
+/* Two columns rather than a dl's default block flow, so the keys line up in a readable
+   gutter. `auto` on the first, because "Page Up / Page Down" is much wider than "M" and a
+   fixed column would either clip it or waste the space for every other row. */
+.shortcuts {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-8) var(--space-16);
+    align-items: baseline;
+    margin: 0;
+    font-size: var(--text-sm);
+}
+
+.shortcuts dd {
+    margin: 0;
+    color: var(--color-ink-secondary);
+}
+
+.kbd {
+    display: inline-block;
+    padding: 2px var(--space-8);
+    border: var(--border-hairline) solid var(--color-ink);
+    background: var(--color-recess);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+}
+
 .dialog__footer {
     display: flex;
     justify-content: flex-end;
@@ -881,7 +994,37 @@ h1 {
 /* Rows with move buttons carry two extra controls. Declared as a modifier of the grid rather
    than a separate class, so both lists share every other rule. */
 .queue__row:has([data-move]) {
-    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+}
+
+/* --- Dragging a playlist into order --------------------------------------- */
+.queue__grip {
+    color: var(--color-ink-tertiary);
+    cursor: grab;
+    user-select: none;
+    font-size: var(--text-sm);
+    line-height: 1;
+}
+
+.queue__row--draggable:active .queue__grip {
+    cursor: grabbing;
+}
+
+/* The row being dragged. Dimmed rather than hidden: taking it out of the flow would make
+   everything below jump by a row the moment the drag started. */
+.queue__row[data-dragging] {
+    opacity: 0.4;
+}
+
+/* Where it will land. A line on one edge of the row under the pointer, drawn with an inset
+   box-shadow so it does not add height -- a real border would push every row below it down by
+   three pixels on every pointer move, which reads as the list vibrating. */
+.queue__row[data-drop="before"] {
+    box-shadow: inset 0 var(--border-heavy) 0 var(--color-ink);
+}
+
+.queue__row[data-drop="after"] {
+    box-shadow: inset 0 calc(var(--border-heavy) * -1) 0 var(--color-ink);
 }
 
 .queue__row:hover {
@@ -1182,6 +1325,24 @@ h1 {
     border-color: var(--color-ink-tertiary);
 }
 
+/* --- Recently played ------------------------------------------------------ */
+.history {
+    padding-block-end: var(--space-20);
+    border-block-start: var(--border-medium) solid var(--color-ink);
+}
+
+.history__heading {
+    padding: var(--space-16) var(--space-20);
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-ink-tertiary);
+}
+
+.history__body .view-header__count {
+    padding: 0 var(--space-20) var(--space-16);
+}
+
 /* --- Transport ----------------------------------------------------------- */
 .transport {
     grid-row: 3;
@@ -1332,6 +1493,41 @@ h1 {
     border-radius: var(--radius-none);
 }
 
+/* --- Volume --------------------------------------------------------------- */
+.transport__volume {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex: 0 0 auto;
+}
+
+/* Fixed, and short. The seek bar is the one that should take the slack in the row -- position
+   within a track is worth pixels in a way that a volume level is not. */
+.range--volume {
+    flex: 0 0 auto;
+    inline-size: 6rem;
+}
+
+/* One icon, two states. Both groups are in the markup and CSS picks; swapping the SVG in
+   JavaScript would mean building markup from a string, which nothing in this app does. */
+.icon__slash {
+    display: none;
+}
+
+[data-muted="true"] .icon__waves {
+    display: none;
+}
+
+[data-muted="true"] .icon__slash {
+    display: inline;
+}
+
+/* Muted is a state worth seeing at a glance, not only in the icon. */
+[data-muted="true"].icon-btn {
+    background: var(--color-ink);
+    color: var(--color-surface);
+}
+
 /* --- Responsive ---------------------------------------------------------- */
 /* Literal breakpoints: @media cannot read custom properties. */
 @media (max-width: 768px) {
@@ -1371,6 +1567,12 @@ h1 {
     .list-row__artist,
     .list-row__album {
         display: none;
+    }
+
+    /* Restated for the narrow layout, or the desktop six-column rule would apply to a row
+       that now only has three visible cells. */
+    .list--plays .list-row {
+        grid-template-columns: 2.5rem 1fr 3rem 4rem;
     }
 
     /* Stacked rather than three columns: on a phone the buttons would otherwise be
@@ -1439,6 +1641,12 @@ h1 {
         grid-template-columns: minmax(0, 1fr) auto auto auto;
     }
 
+    /* The grip goes on a phone. HTML5 drag events do not fire from a touchscreen at all, so on
+       the devices this breakpoint is for it is an affordance for something that cannot happen. */
+    .queue__grip {
+        display: none;
+    }
+
     .transport {
         grid-template-areas:
             "art meta meta"
@@ -1448,6 +1656,12 @@ h1 {
 
     .transport__controls {
         justify-content: center;
+    }
+
+    /* The seek row carries three things on a phone. The volume slider is the one that can
+       afford to shrink: it has a mute button beside it and hardware buttons behind that. */
+    .range--volume {
+        inline-size: 4rem;
     }
 }
 

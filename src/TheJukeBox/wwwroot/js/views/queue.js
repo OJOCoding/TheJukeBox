@@ -11,7 +11,11 @@
 // screen reader handles it correctly with no custom key handling, and a grid's cost is paid in
 // the one place a subtle ARIA mistake is hardest to notice.
 
-import { alertUser, announce, clear, el, isoDuration, mmss } from '../core/ui.js';
+import { alertUser, announce, el, isoDuration, mmss } from '../core/ui.js';
+import { createAdaptiveList } from '../ui/virtual-list.js';
+
+/** Must match --queue-row-h in tokens.css: windowed rows are positioned arithmetically. */
+const ROW_HEIGHT = 72;
 
 export function renderQueue(outlet, { store, player }) {
     const count = el('p', { class: 'view-header__count', text: '' });
@@ -43,10 +47,16 @@ export function renderQueue(outlet, { store, player }) {
         body,
     );
 
-    function render() {
-        const entries = player.queueEntries();
+    // Windowed above the same threshold as the library. A queue is usually short, which is why
+    // it was never windowed -- but "play everything" on a large library builds one that is not,
+    // and the two-thousand rows that produced were four controls each.
+    const rows = createAdaptiveList({ container: list, scrollParent: outlet, rowHeight: ROW_HEIGHT });
 
-        clear(list);
+    /** The entries the current render was built from, read back by lazily built rows. */
+    let entries = [];
+
+    function render() {
+        entries = player.queueEntries();
 
         count.textContent = entries.length === 0
             ? 'EMPTY'
@@ -55,18 +65,24 @@ export function renderQueue(outlet, { store, player }) {
         clearButton.disabled = entries.length === 0;
 
         if (entries.length === 0) {
+            rows.render(0, buildRow);
             body.replaceChildren(emptyNotice());
             return;
         }
 
-        const fragment = document.createDocumentFragment();
-
-        for (const entry of entries) {
-            fragment.append(row(entry));
-        }
-
-        list.append(fragment);
         body.replaceChildren(list);
+        rows.render(entries.length, buildRow);
+    }
+
+    /**
+     * Builds the row at a display index.
+     *
+     * Reads `entries` rather than closing over one, because when windowed this is called long
+     * after render() returned -- on every scroll -- and a captured array would go stale the
+     * first time the queue changed.
+     */
+    function buildRow(index) {
+        return row(entries[index]);
     }
 
     function emptyNotice() {
@@ -141,13 +157,19 @@ export function renderQueue(outlet, { store, player }) {
 
     render();
 
-    if (player.queueEntries().length === 0) {
+    if (entries.length === 0) {
         // Announced rather than silent, so a keyboard user who navigated here is told why the
         // view has nothing in it.
         announce('The queue is empty.');
     }
 
-    return unsubscribe;
+    return () => {
+        unsubscribe();
+
+        // Or navigating away leaves a renderer observing the shell's scroll region on behalf of
+        // a list that no longer exists.
+        rows.destroy();
+    };
 }
 
 /** Adds a whole list of tracks to the queue, reporting what happened. */

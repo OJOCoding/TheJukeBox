@@ -119,6 +119,15 @@
     /* Track row height. Read by the virtual list's positioning arithmetic as well as by the
        stylesheet, so the two cannot disagree. Comfortably clears the 44px WCAG 2.5.8 target. */
     --row-h: 56px;
+    /* Queue and playlist rows, which stack a title over an artist and so are taller than a
+       library row. Read by createAdaptiveList's positioning arithmetic as well as by the
+       stylesheet, so the two cannot disagree.
+
+       A two-line row measures 67.1px, and this has to clear that: when windowed the height is
+       applied exactly, so a value under the natural height clips the artist rather than growing
+       the row. The few pixels of slack are for a fallback font or an enlarged minimum font size
+       measuring a little taller than the one this was checked against. */
+    --queue-row-h: 72px;
     /* How much of #view's top edge the sticky .view-header covers, used as the scroll
        region's top padding so a row scrolled to the top lands below the header rather than
        underneath it.
