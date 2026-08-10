@@ -199,6 +199,13 @@ Set `APP_TRUST_PROXY=true` when the proxy is the only route in, so `X-Forwarded-
 ## 5. First run
 
 1. Open your instance. You will see the sign-in screen.
+
+   ![The sign-in screen, showing SYSTEM ONLINE and a Sign in with Google
+   button.](screenshots/01-welcome.png)
+
+   If it says **NOT CONFIGURED** instead of offering a sign-in button, the credentials are
+   not reaching the process — see [Where the credentials go](#where-the-credentials-go).
+
 2. **Sign in with Google.** Accept the "unverified app" warning if shown.
 3. Grant read-only Drive access.
 4. Choose **Scan my Drive**. The first sync lists your audio files, then reads embedded tags
