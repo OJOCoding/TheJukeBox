@@ -9,7 +9,6 @@
 
 .git
 .github
-.claude
 
 # Local runtime state. Copying a database or a Data Protection key ring into an image
 # would bake one machine's data, and its decryptable tokens, into a distributable artifact.
