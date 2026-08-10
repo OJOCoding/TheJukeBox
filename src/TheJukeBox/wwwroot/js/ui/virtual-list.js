@@ -62,7 +62,7 @@ export function computeWindow({ scrollOffset, viewportHeight, rowHeight, total, 
  * @param options.rowHeight    fixed row height in pixels
  * @param options.renderRow    (index) => HTMLElement, called only for visible indices
  */
-export function createVirtualList({ container, scrollParent, rowHeight, renderRow, overscan = 6 }) {
+function createVirtualList({ container, scrollParent, rowHeight, renderRow, overscan = 6 }) {
     let total = 0;
     let rendered = new Map();
     let frame = 0;

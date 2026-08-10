@@ -17,6 +17,17 @@ public interface ISyncDispatcher
     /// </param>
     /// <returns>True if this call queued new work.</returns>
     bool TryEnqueue(Guid userId, bool forceFull = false);
+
+    /// <summary>
+    /// Whether a sync is already queued for this user but has not started.
+    /// </summary>
+    /// <remarks>
+    /// On the interface rather than only on the implementation. The status endpoint used to
+    /// reach it with <c>queue is SyncDispatcher concrete</c> -- a downcast back to the type the
+    /// abstraction exists to hide, which any other implementation would fail silently, reporting
+    /// "nothing pending" instead of failing to compile.
+    /// </remarks>
+    bool IsPending(Guid userId);
 }
 
 /// <summary>

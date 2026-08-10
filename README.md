@@ -330,7 +330,19 @@ Deliberate omissions, stated so nobody has to discover them:
 - **Nothing renders markup from data.** Every value that reaches the DOM is set as text —
   file names, tags, playlist names, and anything an online lookup returned.
 - **Cover art is served with a MIME type sniffed from its own bytes**, never one that a tag
-  or a third party claimed, and always with `nosniff`.
+  or a third party claimed, and always with `nosniff`. The hash in the URL is validated
+  against `^[0-9a-f]{32,64}$` and the size against a closed set before either reaches the
+  database.
+- **Art is the one thing not scoped per user**, and that is deliberate. It is stored under a
+  hash of its own bytes so that twelve tracks from one album share a row and two people who
+  own the same record share it too — which is also what makes an album a single row with no
+  grouping logic. The consequence is that any signed-in user could fetch any art blob whose
+  SHA-256 they knew; knowing one means already having the metadata it came from, and guessing
+  one is not a thing that happens.
+- **No request rate limiting.** Registration is approval-gated and Google caps an unverified
+  project at 100 users, so every caller is someone you let in; the page sizes, the queue
+  length and the history log are all capped instead. Worth revisiting if you ever run this
+  `Open`.
 - **No CORS policy at all.** The frontend is same-origin, so cross-origin access is never
   needed and is never granted.
 - **OAuth uses the framework handler**, which supplies `state` and PKCE.

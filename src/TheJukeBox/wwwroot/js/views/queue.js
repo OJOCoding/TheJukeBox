@@ -11,7 +11,7 @@
 // screen reader handles it correctly with no custom key handling, and a grid's cost is paid in
 // the one place a subtle ARIA mistake is hardest to notice.
 
-import { alertUser, announce, el, isoDuration, mmss } from '../core/ui.js';
+import { announce, el, isoDuration, mmss } from '../core/ui.js';
 import { createAdaptiveList } from '../ui/virtual-list.js';
 
 /** Must match --queue-row-h in tokens.css: windowed rows are positioned arithmetically. */
@@ -170,13 +170,4 @@ export function renderQueue(outlet, { store, player }) {
         // a list that no longer exists.
         rows.destroy();
     };
-}
-
-/** Adds a whole list of tracks to the queue, reporting what happened. */
-export function enqueueAll(player, trackIds) {
-    const added = player.enqueue(trackIds);
-
-    if (added === 0) alertUser('Nothing here could be added to the queue.');
-
-    return added;
 }

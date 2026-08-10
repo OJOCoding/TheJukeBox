@@ -156,7 +156,7 @@ public static class LibraryEndpoints
             state?.LastFullSyncAtUtc,
             state?.ConsecutiveFailures ?? 0,
             state?.LastError,
-            queue is SyncDispatcher concrete && concrete.IsPending(userId)));
+            queue.IsPending(userId)));
     }
 
     /// <summary>
