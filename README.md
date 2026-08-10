@@ -305,9 +305,10 @@ Deliberate omissions, stated so nobody has to discover them:
 - **Reordering a playlist by touch** means the move-up/move-down buttons. Dragging is there
   for a pointer, but HTML5 drag events do not fire from a touchscreen at all, so the buttons
   are the implementation and dragging is an accelerator over the top of it.
-- **Volume is fixed on iOS.** Safari makes `audio.volume` read-only on the grounds that the
-  hardware buttons are the volume control. The slider is hidden there rather than shown doing
-  nothing.
+- **The volume slider is desktop-only.** Safari makes `audio.volume` read-only on the grounds
+  that the hardware buttons are the volume control, so it is hidden entirely on iOS rather
+  than shown doing nothing; at phone widths it gives its place in the transport back to the
+  seek bar, which the slider had squeezed to 111px. Mute stays everywhere.
 - **Shared drives, shortcuts, and multi-parent files** are out of scope.
 
 ## Security

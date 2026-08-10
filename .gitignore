@@ -390,3 +390,10 @@ FodyWeavers.xsd
 .env
 !.env.example
 
+# Screen recordings and other captures. One was committed by accident and carried 7.4 MB
+# through every clone; .dockerignore already excluded *.zip from the image, which is a good
+# sign nobody meant it to be here. Kept on disk, just not in the repository.
+*.zip
+*.mp4
+*.mov
+
