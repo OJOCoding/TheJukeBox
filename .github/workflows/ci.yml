@@ -28,7 +28,7 @@ jobs:
       # The frontend tests use Node's built-in runner, so there is no package.json and
       # nothing to install -- but Node itself has to be present or the bridge test
       # reports them as skipped and they are silently not enforced.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
