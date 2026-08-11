@@ -1,7 +1,14 @@
 ###############################################################################
-# Set default behavior to automatically normalize line endings.
+# Normalise line endings to LF, in the object store *and* in the working tree.
+#
+# `text=auto` alone only normalises what is committed; the checkout is left to each
+# developer's core.autocrlf. On Windows that means CRLF in the working tree while the
+# repository holds LF, and the two disagree with .editorconfig on one platform or the other --
+# which is what made `dotnet format --verify-no-changes` pass locally and fail on a Linux CI
+# runner for every C# file. `eol=lf` pins the checkout too, so every machine sees the bytes
+# that are actually committed.
 ###############################################################################
-* text=auto
+* text=auto eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

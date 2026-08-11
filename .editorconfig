@@ -2,7 +2,13 @@ root = true
 
 [*]
 charset = utf-8
-end_of_line = crlf
+
+# LF, matching what git actually stores and what .gitattributes now checks out on every
+# platform. This said crlf, and the combination could not pass CI: git normalises to LF in the
+# object store, a Windows checkout with core.autocrlf=true converts back to CRLF so
+# `dotnet format` agrees locally, and a Linux runner checks out the LF that is really there and
+# fails every C# file. The first CI run this repository ever did failed on exactly that.
+end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
