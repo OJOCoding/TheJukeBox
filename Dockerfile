@@ -8,9 +8,18 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Manifests first, so a source-only change does not invalidate the restore layer.
+#
 # Directory.Packages.props is not optional here: central package management means the
 # project files carry no versions, and a restore without it fails with NU1015.
-COPY Directory.Build.props Directory.Packages.props ./
+#
+# .editorconfig is not optional either, and its absence was a much stranger failure. It
+# carries `dotnet_analyzer_diagnostic.severity = none` for **/Migrations/*.cs, because EF
+# generates that code and it does not satisfy rules written for hand-written code. Without the
+# file in the context the suppression does not exist, CA1861 fires on every generated
+# migration, and TreatWarningsAsErrors turns it into a failed image build -- while
+# `dotnet build` on the same commit passes, because there the file is simply present. The image
+# was the only place that ever compiled without it.
+COPY Directory.Build.props Directory.Packages.props .editorconfig ./
 COPY src/TheJukeBox/TheJukeBox.csproj src/TheJukeBox/
 
 RUN dotnet restore src/TheJukeBox/TheJukeBox.csproj
