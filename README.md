@@ -10,20 +10,17 @@ through. Self-hosted: one process, one SQLite file, one directory to back up.
 Built with ASP.NET Core on .NET 10 and a dependency-free vanilla-JavaScript frontend, in a
 deliberately monochrome "technical blueprint" style.
 
-![Now Playing: the cover at size, the track and artist, a recently-played strip underneath,
-and the transport pinned to the bottom of the window where it stays on every
-view.](docs/screenshots/02-now-playing.png)
+**Now playing** — the cover at size, a recently-played strip underneath, and the transport
+pinned to the bottom of the window, where it stays on every view.
 
-<details>
-<summary>The sign-in page</summary>
+![The Now Playing view, showing album art, track and artist, a RECENTLY PLAYED list, and the
+playback bar along the bottom.](docs/screenshots/02-now-playing.png)
 
-The first and only thing an unapproved visitor can reach. No nav, no transport, no account
-menu — furniture with nothing behind it is worse than no furniture.
+**The main page** — what a visitor gets before signing in, and all they get. No nav, no
+transport, no account menu: furniture with nothing behind it is worse than no furniture.
 
-![The sign-in page: the project described in three paragraphs, and one Sign in with Google
-button.](docs/screenshots/01-welcome.png)
-
-</details>
+![The sign-in page, showing SYSTEM ONLINE, the project described in three paragraphs, and a
+single Sign in with Google button.](docs/screenshots/01-welcome.png)
 
 - [What it does](#what-it-does)
 - [Quick start with Docker](#quick-start-with-docker)
