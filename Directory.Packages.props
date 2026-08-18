@@ -21,7 +21,7 @@
   </ItemGroup>
   <ItemGroup Label="API surface">
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
   </ItemGroup>
   <!--
     Transitive pin. Microsoft.AspNetCore.OpenApi 10.0.10 resolves Microsoft.OpenApi
