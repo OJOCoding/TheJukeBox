@@ -4,7 +4,7 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup Label="Google Drive">
-    <PackageVersion Include="Google.Apis.Auth" Version="1.71.0" />
+    <PackageVersion Include="Google.Apis.Auth" Version="1.76.0" />
     <PackageVersion Include="Google.Apis.Drive.v3" Version="1.71.0.3905" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.10" />
     <PackageVersion Include="z440.atl.core" Version="7.15.3" />
